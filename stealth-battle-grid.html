@@ -849,6 +849,96 @@ body.dragging-piece .cell:hover {
 
   z-index: 3;
 }
+
+.cell.darkness-overlay::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(5, 5, 12, 0.88),
+      rgba(0, 0, 0, 0.96)
+    );
+
+  box-shadow:
+    inset 0 0 14px
+    rgba(80, 50, 130, 0.35);
+
+  pointer-events: none;
+
+  z-index: 30;
+}
+
+.cell.darkness-preview {
+  position: relative;
+}
+
+.cell.darkness-preview::before {
+  content: "";
+
+  position: absolute;
+  inset: 2px;
+
+  background: rgba(20, 10, 35, 0.35);
+
+  border: 2px dashed rgba(190, 140, 255, 0.95);
+
+  box-shadow:
+    inset 0 0 10px rgba(150, 80, 255, 0.45),
+    0 0 5px rgba(150, 80, 255, 0.35);
+
+  box-sizing: border-box;
+
+  pointer-events: none;
+
+  z-index: 40;
+}
+
+
+/*
+  Center square is more obvious so you
+  know where the Darkness is anchored.
+*/
+
+.cell.darkness-preview-center::before {
+  border: 3px solid rgba(220, 180, 255, 1);
+
+  background: rgba(80, 35, 110, 0.45);
+
+  box-shadow:
+    inset 0 0 14px rgba(180, 100, 255, 0.7),
+    0 0 10px rgba(180, 100, 255, 0.7);
+}
+
+.cell.darkness-erase-preview {
+  position: relative;
+}
+
+.cell.darkness-erase-preview::before {
+  content: "";
+
+  position: absolute;
+  inset: 2px;
+
+  border: 3px solid rgba(255, 60, 60, 0.95);
+
+  background:
+    rgba(255, 40, 40, 0.18);
+
+  box-shadow:
+    inset 0 0 12px
+      rgba(255, 50, 50, 0.6),
+    0 0 8px
+      rgba(255, 50, 50, 0.7);
+
+  pointer-events: none;
+
+  z-index: 50;
+}
+
 </style>
 
 </head>
@@ -933,6 +1023,14 @@ body.dragging-piece .cell:hover {
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eraser" viewBox="0 0 16 16">
 <path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414zM8.746 13.547 3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293z"/>
 </svg> Eraser
+      </button>
+
+      <button
+        class="darkness-btn"
+        data-tool="darkness"
+        onclick="selectTool('darkness', this)"
+      >
+        🌑 Darkness
       </button>
 
     </div>
@@ -1077,6 +1175,46 @@ function startDrag(
     selectedTool === "erase"
   ) {
 
+    /*
+      FIRST:
+      Check for Darkness.
+
+      Darkness gets priority because it is
+      visually above Players, Enemies,
+      and terrain.
+    */
+
+    const darkness =
+      getDarknessAt(
+        row,
+        col
+      );
+
+
+    if (darkness) {
+      /*
+        Remove the entire Darkness area.
+      */
+      darknessAreas =
+        darknessAreas.filter(
+          area =>
+            area.id !== darkness.id
+        );
+
+      clearDarknessPreview();
+      renderBoard();
+      checkAllLineOfSight();
+      saveBattleGrid();
+      event.preventDefault();
+
+      return;
+
+    }
+    /*
+      No Darkness here.
+
+      Erase the normal board piece.
+    */
     board[row][col] =
       null;
 
@@ -1086,8 +1224,8 @@ function startDrag(
     event.preventDefault();
 
     return;
-
   }
+
 
   // EXISTING PIECE
   // Existing pieces still use your normal
@@ -1496,6 +1634,65 @@ function createGrid() {
           renameCharacter(row, col);
         }
       );
+
+      cell.addEventListener(
+        "pointerenter",
+        function() {
+
+          if (
+            selectedTool === "darkness"
+          ) {
+
+            showDarknessPreview(
+              row,
+              col
+            );
+
+          }
+          else if (
+            selectedTool === "erase"
+          ) {
+
+            showDarknessErasePreview(
+              row,
+              col
+            );
+
+          }
+        }
+      );
+
+
+      cell.addEventListener(
+        "pointerleave",
+        function(event) {
+
+          /*
+            Don't clear when moving directly
+            from one grid cell to another.
+
+            The next cell's pointerenter will
+            replace the preview.
+          */
+
+          const nextElement =
+            event.relatedTarget;
+
+
+          if (
+            nextElement &&
+            nextElement.closest &&
+            nextElement.closest(".cell")
+          ) {
+            return;
+          }
+
+
+          clearDarknessPreview();
+
+        }
+      );
+
       grid.appendChild(cell);
     }
   }
@@ -1594,6 +1791,9 @@ function renderBoard() {
         `Column ${col + 1}`;
     }
   });
+
+  // Darnkess
+  renderDarkness();
 }
 
 
@@ -1655,6 +1855,9 @@ function selectTool(
   tool,
   button
 ) {
+  clearDarknessPreview();
+  clearDarknessErasePreview();
+
   selectedTool = tool;
 
   document
@@ -1712,6 +1915,28 @@ function placeObject(
 
       window.pendingClickTimer =
         null;
+
+        if (
+          selectedTool === "darkness"
+        ) {
+
+          clearDarknessPreview();
+
+          darknessAreas.push({
+            id: nextDarknessId++,
+            row: row,
+            col: col
+          });
+
+          renderBoard();
+
+          checkAllLineOfSight();
+
+          saveBattleGrid();
+
+          return;
+
+        }
 
       if (
         selectedTool === "erase"
@@ -1878,7 +2103,10 @@ function traceGridRay(
     halfCoverCells: new Set()
   };
 
-  // SAME SQUARE
+
+  /* =========================================
+     SAME SQUARE
+     ========================================= */
   if (
     startRow === targetRow &&
     startCol === targetCol
@@ -1886,6 +2114,10 @@ function traceGridRay(
     return result;
   }
 
+
+  /* =========================================
+     START / END POINTS
+     ========================================= */
   const startX =
     startCol + 0.5;
 
@@ -1916,35 +2148,59 @@ function traceGridRay(
   const stepY =
     Math.sign(dy);
 
+
   const tDeltaX =
     dx === 0
       ? Infinity
       : Math.abs(1 / dx);
+
 
   const tDeltaY =
     dy === 0
       ? Infinity
       : Math.abs(1 / dy);
 
+
   let tMaxX =
     dx === 0
       ? Infinity
       : 0.5 / Math.abs(dx);
+
 
   let tMaxY =
     dy === 0
       ? Infinity
       : 0.5 / Math.abs(dy);
 
+
   const EPSILON =
     1e-10;
 
 
+  /* =========================================
+     HALF COVER HELPER
+     ========================================= */
   function recordHalfCover(
     row,
     col
   ) {
-    // Do not count starting square.
+
+    /*
+      Ignore outside board.
+    */
+    if (
+      row < 0 ||
+      row >= ROWS ||
+      col < 0 ||
+      col >= COLS
+    ) {
+      return;
+    }
+
+
+    /*
+      Don't count start square.
+    */
     if (
       row === startRow &&
       col === startCol
@@ -1952,7 +2208,10 @@ function traceGridRay(
       return;
     }
 
-    // Do not count target square.
+
+    /*
+      Don't count target square.
+    */
     if (
       row === targetRow &&
       col === targetCol
@@ -1960,24 +2219,30 @@ function traceGridRay(
       return;
     }
 
+
     if (
       isHalfCover(
         row,
         col
       )
     ) {
+
       result.halfCoverCells.add(
         `${row},${col}`
       );
     }
   }
 
-  //  TRACE THROUGH GRID
+  /* =========================================
+     TRACE GRID
+     ========================================= */
   while (
     currentRow !== targetRow ||
     currentCol !== targetCol
   ) {
-    // CROSS VERTICAL EDGE
+    /* =======================================
+       VERTICAL EDGE
+       ======================================= */
     if (
       tMaxX <
       tMaxY - EPSILON
@@ -1988,7 +2253,24 @@ function traceGridRay(
       tMaxX +=
         tDeltaX;
 
-      // If we reached the target, stop.
+      /*
+        Outside board.
+      */
+      if (
+        currentRow < 0 ||
+        currentRow >= ROWS ||
+        currentCol < 0 ||
+        currentCol >= COLS
+      ) {
+        result.blocked =
+          true;
+        break;
+      }
+
+
+      /*
+        Target cell itself is visible.
+      */
       if (
         currentRow === targetRow &&
         currentCol === targetCol
@@ -1996,27 +2278,39 @@ function traceGridRay(
         break;
       }
 
-      // Full Cover blocks immediately.
+      /*
+        Full Cover.
+      */
       if (
         isBarrier(
           currentRow,
           currentCol
         )
       ) {
+
         result.blocked =
           true;
+
         break;
+
       }
+
+      /*
+        Half Cover.
+      */
       recordHalfCover(
         currentRow,
         currentCol
       );
-    } else if (
-      // CROSS HORIZONTAL EDGE
+
+    }
+    /* =======================================
+       HORIZONTAL EDGE
+       ======================================= */
+    else if (
       tMaxY <
       tMaxX - EPSILON
     ) {
-
       currentRow +=
         stepY;
 
@@ -2024,7 +2318,24 @@ function traceGridRay(
       tMaxY +=
         tDeltaY;
 
+      /*
+        Outside board.
+      */
+      if (
+        currentRow < 0 ||
+        currentRow >= ROWS ||
+        currentCol < 0 ||
+        currentCol >= COLS
+      ) {
+        result.blocked =
+          true;
+        break;
 
+      }
+
+      /*
+        Target cell itself is visible.
+      */
       if (
         currentRow === targetRow &&
         currentCol === targetCol
@@ -2032,7 +2343,9 @@ function traceGridRay(
         break;
       }
 
-
+      /*
+        Full Cover.
+      */
       if (
         isBarrier(
           currentRow,
@@ -2043,12 +2356,21 @@ function traceGridRay(
           true;
         break;
       }
+
+      /*
+        Half Cover.
+      */
       recordHalfCover(
         currentRow,
         currentCol
       );
-    } else {
-      // EXACT GRID CORNER
+
+    }
+
+    /* =======================================
+       EXACT GRID CORNER
+       ======================================= */
+    else {
       const nextRow =
         currentRow +
         stepY;
@@ -2057,7 +2379,9 @@ function traceGridRay(
         currentCol +
         stepX;
 
-      // These are the two squares touching the corner the ray passes through.
+      /*
+        Side cells touching the corner.
+      */
       const horizontalRow =
         currentRow;
 
@@ -2082,8 +2406,11 @@ function traceGridRay(
           verticalCol
         );
 
-
-      // Two Full Cover squares touching at the corner block the diagonal gap.
+      /*
+        Two Full Cover blocks touching
+        diagonally block LOS through
+        their shared corner.
+      */
       if (
         horizontalBarrier &&
         verticalBarrier
@@ -2093,25 +2420,28 @@ function traceGridRay(
         break;
       }
 
-      // Half Cover touching the exact corner counts as cover. Using a Set prevents duplicates.
+      /*
+        Check Half Cover touching
+        the corner.
+      */
       recordHalfCover(
         horizontalRow,
         horizontalCol
       );
-
 
       recordHalfCover(
         verticalRow,
         verticalCol
       );
 
-      // Move diagonally into next square.
+      /*
+        Move diagonally.
+      */
       currentRow =
         nextRow;
 
       currentCol =
         nextCol;
-
 
       tMaxX +=
         tDeltaX;
@@ -2119,7 +2449,23 @@ function traceGridRay(
       tMaxY +=
         tDeltaY;
 
+      /*
+        Outside board.
+      */
+      if (
+        currentRow < 0 ||
+        currentRow >= ROWS ||
+        currentCol < 0 ||
+        currentCol >= COLS
+      ) {
+        result.blocked =
+          true;
+        break;
+      }
 
+      /*
+        Target square itself remains visible.
+      */
       if (
         currentRow === targetRow &&
         currentCol === targetCol
@@ -2127,7 +2473,9 @@ function traceGridRay(
         break;
       }
 
-      // Full Cover in the diagonal square also blocks vision.
+      /*
+        Full Cover in diagonal square.
+      */
       if (
         isBarrier(
           currentRow,
@@ -2138,25 +2486,20 @@ function traceGridRay(
           true;
         break;
       }
+
+      /*
+        Half Cover in diagonal square.
+      */
       recordHalfCover(
         currentRow,
         currentCol
       );
     }
-
-    // SAFETY
-    if (
-      currentRow < 0 ||
-      currentRow >= ROWS ||
-      currentCol < 0 ||
-      currentCol >= COLS
-    ) {
-      result.blocked =
-        true;
-      break;
-    }
   }
 
+  /* =========================================
+     FINAL HALF COVER COUNT
+     ========================================= */
   result.halfCoverCount =
     result.halfCoverCells.size;
 
@@ -2225,7 +2568,48 @@ function hasLineOfSight(
   playerRow,
   playerCol
 ) {
-  // Surrounded enemy cannot see outward.
+
+  /* =========================================
+     PLAYER INSIDE DARKNESS
+     ========================================= */
+
+  /*
+    A Player standing inside Darkness
+    cannot be seen using normal vision.
+  */
+
+  if (
+    isDarknessAt(
+      playerRow,
+      playerCol
+    )
+  ) {
+
+    return false;
+
+  }
+
+
+  /* =========================================
+     ENEMY INSIDE DARKNESS
+     ========================================= */
+
+  /*
+    An Enemy standing inside Darkness
+    also cannot use normal vision outward.
+  */
+  if (
+    isDarknessAt(
+      enemyRow,
+      enemyCol
+    )
+  ) {
+    return false;
+  }
+
+  /* =========================================
+     SURROUNDED ENEMY
+     ========================================= */
   if (
     isEnemySurrounded(
       enemyRow,
@@ -2235,6 +2619,9 @@ function hasLineOfSight(
     return false;
   }
 
+  /* =========================================
+     NORMAL GRID RAY
+     ========================================= */
   const ray =
     traceGridRay(
       enemyRow,
@@ -2243,20 +2630,40 @@ function hasLineOfSight(
       playerCol
     );
 
-  // Full Cover barrier.
-  if (ray.blocked) {
+  /*
+    Full Cover.
+  */
+  if (
+    ray.blocked
+  ) {
     return false;
   }
-  // Two Half Covers count as Full Cover.
+
+  /*
+    Two Half Cover squares
+    count as Full Cover.
+  */
   if (
     ray.halfCoverCount >= 2
   ) {
     return false;
   }
-  // Zero or one Half Cover = visible.
+
+  /* =========================================
+     DARKNESS BETWEEN ENEMY AND PLAYER
+     ========================================= */
+  if (
+    doesRayCrossDarkness(
+      enemyRow,
+      enemyCol,
+      playerRow,
+      playerCol
+    )
+  ) {
+    return false;
+  }
   return true;
 }
-
 
 function checkAllLineOfSight() {
   const enemies = [];
@@ -2587,6 +2994,8 @@ function clearGrid() {
   updateEnemyVisionOverlay();
   // Save the now-empty grid.
   saveBattleGrid();
+  // Darkness
+  removeAllDarkness();
 }
 
 
@@ -2732,6 +3141,36 @@ function updateEnemyVisionOverlay() {
             continue;
           }
 
+          /*
+            Target itself is inside Darkness.
+          */
+
+          if (
+            isDarknessAt(
+              targetRow,
+              targetCol
+            )
+          ) {
+            continue;
+          }
+
+
+          /*
+            Vision passes through Darkness.
+          */
+
+          if (
+            doesRayCrossDarkness(
+              enemyRow,
+              enemyCol,
+              targetRow,
+              targetCol
+            )
+          ) {
+            continue;
+          }
+
+
           const cell =
             grid.querySelector(
               `.cell[data-row="${targetRow}"]` +
@@ -2757,7 +3196,9 @@ function saveBattleGrid() {
     cols: COLS,
     board: board,
     nextCharacterId: nextCharacterId,
-    enemyVisionEnabled: enemyVisionEnabled
+    enemyVisionEnabled: enemyVisionEnabled,
+    darknessAreas: darknessAreas,
+    nextDarknessId: nextDarknessId
   };
 
   try {
@@ -2783,8 +3224,23 @@ function loadBattleGrid() {
       return false;
     }
 
-    const data =
-      JSON.parse(savedData);
+    const data = JSON.parse(savedData);
+      if (
+        Array.isArray(
+          data.darknessAreas
+        )
+      ) {
+        darknessAreas =
+          data.darknessAreas;
+      }
+
+      if (
+        Number.isInteger(
+          data.nextDarknessId
+        )
+      ) {
+        nextDarknessId = data.nextDarknessId;
+      }
 
     // Restore grid dimensions
     if (
@@ -2855,6 +3311,8 @@ function selectCoverType(
   type,
   event
 ) {
+  clearDarknessPreview();
+
   event.stopPropagation();
 
   selectedTool = type;
@@ -2919,7 +3377,6 @@ function paintCoverCell(
   row,
   col
 ) {
-
   // Don't repeatedly paint the same cell while the pointer remains over it.
   if (
     row === lastPaintedRow &&
@@ -2964,7 +3421,678 @@ function paintCoverCell(
   renderBoard();
 }
 
+// Darkness
+let darknessAreas = [];
+let nextDarknessId = 1;
+let selectedDarknessId = null;
+let darknessPreviewCells = [];
+let darknessErasePreviewCells = [];
 
+// IN THE FUTURE THIS WILL BE A TOGGLE FOR THE DARKNESS TEMPLATE
+let useSimpleDarkness = true;
+const SIMPLE_DARKNESS_SHAPE = [
+  [-3,  0],
+
+  [-2, -1],
+  [-2,  0],
+  [-2,  1],
+
+  [-1, -2],
+  [-1, -1],
+  [-1,  0],
+  [-1,  1],
+  [-1,  2],
+
+  [ 0, -3],
+  [ 0, -2],
+  [ 0, -1],
+  [ 0,  0],
+  [ 0,  1],
+  [ 0,  2],
+  [ 0,  3],
+
+  [ 1, -2],
+  [ 1, -1],
+  [ 1,  0],
+  [ 1,  1],
+  [ 1,  2],
+
+  [ 2, -1],
+  [ 2,  0],
+  [ 2,  1],
+
+  [ 3,  0]
+];
+const CENTER_SQUARD_DARKNESS_SHAPE = [
+  [-3,  -1],
+  [-3,  0],
+  [-3,  1],
+
+  [-2, -2],
+  [-2, -1],
+  [-2,  0],
+  [-2,  1],
+  [-2, 2],
+
+  [-1, -3],
+  [-1, -2],
+  [-1, -1],
+  [-1,  0],
+  [-1,  1],
+  [-1,  2],
+  [-1, 3],
+
+  [ 0, -3],
+  [ 0, -2],
+  [ 0, -1],
+  [ 0,  0],
+  [ 0,  1],
+  [ 0,  2],
+  [ 0,  3],
+
+  [ 1,  -3],
+  [ 1, -2],
+  [ 1, -1],
+  [ 1,  0],
+  [ 1,  1],
+  [ 1,  2],
+  [ 1,  3],
+
+  [ 2,  -2],
+  [ 2, -1],
+  [ 2,  0],
+  [ 2,  1],
+  [ 2,  2],
+
+  [ 3,  -1],
+  [ 3,  0],
+  [ 3,  1]
+];
+const DARKNESS_SHAPE = useSimpleDarkness ? SIMPLE_DARKNESS_SHAPE : CENTER_SQUARD_DARKNESS_SHAPE;
+
+
+function renderDarkness() {
+
+  /*
+    Remove previous Darkness visuals.
+  */
+
+  document
+    .querySelectorAll(
+      ".darkness-overlay"
+    )
+    .forEach(cell => {
+
+      cell.classList.remove(
+        "darkness-overlay"
+      );
+
+    });
+
+
+  /*
+    Render every Darkness area.
+  */
+
+  for (
+    const darkness of darknessAreas
+  ) {
+
+    for (
+      const [rowOffset, colOffset]
+      of DARKNESS_SHAPE
+    ) {
+
+      const row =
+        darkness.row + rowOffset;
+
+      const col =
+        darkness.col + colOffset;
+
+
+      /*
+        Shape can extend beyond the map.
+        Only render cells actually on-grid.
+      */
+
+      if (
+        row < 0 ||
+        row >= ROWS ||
+        col < 0 ||
+        col >= COLS
+      ) {
+        continue;
+      }
+
+
+      const cell =
+        grid.querySelector(
+          `.cell[data-row="${row}"]` +
+          `[data-col="${col}"]`
+        );
+
+
+      if (cell) {
+
+        cell.classList.add(
+          "darkness-overlay"
+        );
+
+      }
+
+    }
+
+  }
+
+}
+
+
+function removeAllDarkness() {
+
+  /*
+    Remove Darkness visuals from cells.
+  */
+
+  document
+    .querySelectorAll(
+      ".darkness-overlay"
+    )
+    .forEach(cell => {
+
+      cell.classList.remove(
+        "darkness-overlay"
+      );
+
+    });
+
+
+  /*
+    Remove stored Darkness areas
+    if the variable still exists.
+  */
+
+  if (
+    typeof darknessAreas !== "undefined"
+  ) {
+
+    darknessAreas.length = 0;
+
+  }
+
+
+  /*
+    Remove Darkness from saved data.
+  */
+
+  try {
+
+    const savedData =
+      localStorage.getItem(
+        SAVE_KEY
+      );
+
+
+    if (savedData) {
+
+      const data =
+        JSON.parse(savedData);
+
+
+      delete data.darknessAreas;
+      delete data.nextDarknessId;
+      delete data.selectedDarknessId;
+
+
+      localStorage.setItem(
+        SAVE_KEY,
+        JSON.stringify(data)
+      );
+
+    }
+
+  }
+  catch (error) {
+
+    console.error(
+      "Unable to remove Darkness:",
+      error
+    );
+
+  }
+
+
+  /*
+    Redraw grid.
+  */
+
+  renderBoard();
+
+  checkAllLineOfSight();
+
+}
+
+
+function isDarknessAt(
+  row,
+  col
+) {
+
+  for (
+    const darkness of darknessAreas
+  ) {
+
+    for (
+      const [rowOffset, colOffset]
+      of DARKNESS_SHAPE
+    ) {
+
+      if (
+        darkness.row + rowOffset === row &&
+        darkness.col + colOffset === col
+      ) {
+
+        return true;
+
+      }
+
+    }
+
+  }
+
+
+  return false;
+
+}
+
+
+function getDarknessAt(
+  row,
+  col
+) {
+
+  /*
+    Check newest Darkness first.
+
+    This matters if multiple Darkness
+    areas overlap.
+  */
+
+  for (
+    let i = darknessAreas.length - 1;
+    i >= 0;
+    i--
+  ) {
+
+    const darkness =
+      darknessAreas[i];
+
+
+    for (
+      const [rowOffset, colOffset]
+      of DARKNESS_SHAPE
+    ) {
+
+      const darknessRow =
+        darkness.row +
+        rowOffset;
+
+      const darknessCol =
+        darkness.col +
+        colOffset;
+
+
+      if (
+        darknessRow === row &&
+        darknessCol === col
+      ) {
+
+        return darkness;
+
+      }
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+function removeDarkness(
+  darknessId
+) {
+
+  darknessAreas =
+    darknessAreas.filter(
+      darkness =>
+        darkness.id !== darknessId
+    );
+
+
+  renderBoard();
+
+  checkAllLineOfSight();
+
+  saveBattleGrid();
+
+}
+
+
+function doesRayCrossDarkness(
+  startRow,
+  startCol,
+  targetRow,
+  targetCol
+) {
+
+  const startX =
+    startCol + 0.5;
+
+  const startY =
+    startRow + 0.5;
+
+
+  const endX =
+    targetCol + 0.5;
+
+  const endY =
+    targetRow + 0.5;
+
+
+  const dx =
+    endX - startX;
+
+  const dy =
+    endY - startY;
+
+
+  /*
+    Sample densely enough that every
+    crossed grid cell is detected.
+  */
+
+  const distance =
+    Math.max(
+      Math.abs(
+        targetCol - startCol
+      ),
+      Math.abs(
+        targetRow - startRow
+      )
+    );
+
+
+  const steps =
+    Math.max(
+      distance * 20,
+      20
+    );
+
+
+  for (
+    let i = 0;
+    i <= steps;
+    i++
+  ) {
+
+    const t =
+      i / steps;
+
+
+    const x =
+      startX +
+      dx * t;
+
+    const y =
+      startY +
+      dy * t;
+
+
+    const col =
+      Math.floor(x);
+
+    const row =
+      Math.floor(y);
+
+
+    if (
+      isDarknessAt(
+        row,
+        col
+      )
+    ) {
+
+      return true;
+
+    }
+
+  }
+
+
+  return false;
+
+}
+
+
+function clearDarknessPreview() {
+
+  for (
+    const cell of darknessPreviewCells
+  ) {
+
+    cell.classList.remove(
+      "darkness-preview",
+      "darkness-preview-center"
+    );
+
+  }
+
+  darknessPreviewCells = [];
+
+}
+
+
+function showDarknessPreview(
+  centerRow,
+  centerCol
+) {
+
+  /*
+    Remove previous preview.
+  */
+
+  clearDarknessPreview();
+
+
+  /*
+    Only preview while Darkness
+    is the selected tool.
+  */
+
+  if (
+    selectedTool !== "darkness"
+  ) {
+    return;
+  }
+
+
+  /*
+    Draw the entire Darkness footprint.
+  */
+
+  for (
+    const [rowOffset, colOffset]
+    of DARKNESS_SHAPE
+  ) {
+
+    const row =
+      centerRow + rowOffset;
+
+    const col =
+      centerCol + colOffset;
+
+
+    /*
+      Darkness may extend beyond the map.
+
+      We simply don't preview the portions
+      outside the current grid.
+    */
+
+    if (
+      row < 0 ||
+      row >= ROWS ||
+      col < 0 ||
+      col >= COLS
+    ) {
+      continue;
+    }
+
+
+    const cell =
+      grid.querySelector(
+        `.cell[data-row="${row}"]` +
+        `[data-col="${col}"]`
+      );
+
+
+    if (!cell) {
+      continue;
+    }
+
+
+    cell.classList.add(
+      "darkness-preview"
+    );
+
+
+    /*
+      Highlight the center/anchor square.
+    */
+
+    if (
+      row === centerRow &&
+      col === centerCol
+    ) {
+
+      cell.classList.add(
+        "darkness-preview-center"
+      );
+
+    }
+
+
+    darknessPreviewCells.push(
+      cell
+    );
+
+  }
+
+}
+
+
+function clearDarknessErasePreview() {
+
+  for (
+    const cell of
+    darknessErasePreviewCells
+  ) {
+
+    cell.classList.remove(
+      "darkness-erase-preview"
+    );
+
+  }
+
+
+  darknessErasePreviewCells = [];
+
+}
+
+
+function showDarknessErasePreview(
+  row,
+  col
+) {
+
+  clearDarknessErasePreview();
+
+
+  if (
+    selectedTool !== "erase"
+  ) {
+    return;
+  }
+
+
+  const darkness =
+    getDarknessAt(
+      row,
+      col
+    );
+
+
+  if (!darkness) {
+    return;
+  }
+
+
+  /*
+    Highlight the entire Darkness area
+    that will be deleted.
+  */
+
+  for (
+    const [rowOffset, colOffset]
+    of DARKNESS_SHAPE
+  ) {
+
+    const darknessRow =
+      darkness.row +
+      rowOffset;
+
+    const darknessCol =
+      darkness.col +
+      colOffset;
+
+
+    if (
+      darknessRow < 0 ||
+      darknessRow >= ROWS ||
+      darknessCol < 0 ||
+      darknessCol >= COLS
+    ) {
+      continue;
+    }
+
+
+    const cell =
+      grid.querySelector(
+        `.cell[data-row="${darknessRow}"]` +
+        `[data-col="${darknessCol}"]`
+      );
+
+
+    if (cell) {
+
+      cell.classList.add(
+        "darkness-erase-preview"
+      );
+
+
+      darknessErasePreviewCells.push(
+        cell
+      );
+
+    }
+
+  }
+
+}
+
+
+// Debug
 let textBoard = [];
 let textStr = "";
 function printBoard() {
@@ -3056,8 +4184,9 @@ createGrid();
 // updateVisionButton();
 checkAllLineOfSight();
 
-// printBoard();
-// console.log(textStr);
+printBoard();
+console.log(textBoard);
+console.log(textStr);
 
 </script>
 
