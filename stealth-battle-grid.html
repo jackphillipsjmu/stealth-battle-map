@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stealth Battle Grid</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  background:
+    radial-gradient(circle at center, #343434 0%, #171717 75%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.top-section {
+  padding: 16px 20px 20px;
+  background:
+    linear-gradient(
+      180deg,
+      #3b3b3b 0%,
+      #242424 100%
+    );
+  border-bottom: 2px solid #111;
+  box-shadow: 0 6px 15px rgba(0,0,0,.5);
+  position: relative;
+  z-index: 10;
+}
+
+h1 {
+  margin: 0 0 15px;
+  text-shadow:
+    0 2px 2px #000,
+    0 4px 8px rgba(0,0,0,.6);
+}
+
+.grid-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.grid-controls input {
+  width: 65px;
+  padding: 8px;
+  font-size: 16px;
+  text-align: center;
+
+  color: white;
+  background: #222;
+
+  border:
+    1px solid #555;
+
+  border-radius: 6px;
+
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,.7),
+    0 1px 1px rgba(255,255,255,.15);
+}
+
+.name-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.name-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.name-field input {
+  width: 155px;
+  padding: 9px;
+
+  color: white;
+
+  background:
+    linear-gradient(
+      180deg,
+      #3e3e3e,
+      #272727
+    );
+
+  border: 1px solid #666;
+  border-radius: 6px;
+
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,.6);
+}
+
+.name-field input:focus {
+  outline: 2px solid #4ba3ff;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+}
+
+.tool-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.clear-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+button {
+  position: relative;
+
+  padding: 10px 20px;
+
+  border: 1px solid rgba(255,255,255,.25);
+
+  border-radius: 7px;
+
+  font-size: 15px;
+  font-weight: bold;
+
+  cursor: pointer;
+
+  transition:
+    transform .1s,
+    box-shadow .1s,
+    filter .1s;
+
+  box-shadow:
+    0 5px 0 rgba(0,0,0,.55),
+    0 7px 10px rgba(0,0,0,.35),
+    inset 0 1px 2px rgba(255,255,255,.5);
+}
+
+button:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(4px);
+
+  box-shadow:
+    0 1px 0 rgba(0,0,0,.7),
+    0 2px 4px rgba(0,0,0,.4);
+}
+
+button.selected {
+  border: 2px solid white;
+
+  box-shadow:
+    0 5px 0 rgba(0,0,0,.6),
+    0 0 12px white,
+    inset 0 1px 3px rgba(255,255,255,.5);
+}
+
+.barrier-btn {
+  background:
+    linear-gradient(#fff16a, #d5aa00);
+  color: #111;
+}
+
+.player-btn {
+  background:
+    linear-gradient(#5ff094, #168947);
+  color: #111;
+}
+
+.enemy-btn {
+  background:
+    linear-gradient(#c77bea, #71308e);
+  color: white;
+}
+
+.erase-btn {
+  background:
+    linear-gradient(#fff, #aaa);
+  color: #111;
+}
+
+.clear-btn {
+  min-width: 160px;
+
+  background:
+    linear-gradient(#ff6b5e, #b5261b);
+
+  color: white;
+}
+
+.middle-section {
+  flex: 1;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 40px;
+
+  min-height: 0;
+
+  perspective: 1100px;
+}
+
+#grid-container {
+  max-width: 100%;
+  max-height: 100%;
+
+  overflow: auto;
+
+  padding:
+    25px 35px 45px;
+
+  transform:
+    rotateX(5deg);
+
+  transform-style:
+    preserve-3d;
+}
+
+#grid {
+  display: grid;
+  gap: 4px;
+
+  width: max-content;
+
+  margin: auto;
+
+  padding: 10px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #383838,
+      #181818
+    );
+
+  border:
+    3px solid #555;
+
+  border-radius: 8px;
+
+  box-shadow:
+    0 8px 0 #111,
+    0 15px 25px rgba(0,0,0,.65),
+    inset 0 1px 2px rgba(255,255,255,.15);
+
+  transform-style:
+    preserve-3d;
+}
+
+.cell {
+  position: relative;
+
+  width: 65px;
+  height: 65px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #929292 0%,
+      #747474 48%,
+      #5c5c5c 100%
+    );
+
+  border-top:
+    1px solid #aaa;
+
+  border-left:
+    1px solid #999;
+
+  border-right:
+    1px solid #444;
+
+  border-bottom:
+    1px solid #3a3a3a;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 4px;
+
+  font-size: 11px;
+  font-weight: bold;
+
+  cursor: pointer;
+  user-select: none;
+
+  overflow-wrap: anywhere;
+
+  transition:
+    transform .12s,
+    filter .12s,
+    box-shadow .12s;
+
+  box-shadow:
+    inset 2px 2px 3px rgba(255,255,255,.12),
+    inset -2px -2px 3px rgba(0,0,0,.25);
+}
+
+.cell:hover {
+  filter: brightness(1.15);
+
+  transform:
+    translateZ(5px);
+
+  z-index: 5;
+}
+
+.cell::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,255,255,.05),
+      transparent 35%,
+      rgba(0,0,0,.08)
+    );
+}
+
+.cell.barrier {
+  background:
+    linear-gradient(
+      145deg,
+      #8b5a2b 0%,
+      #68401f 55%,
+      #442713 100%
+    );
+
+  color: white;
+  font-size: 52px;
+  line-height: 1;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  transform:
+    translateY(-5px)
+    translateZ(12px);
+
+  border-top: 2px solid #a97444;
+  border-left: 2px solid #8b5a2b;
+  border-right: 3px solid #3c2110;
+  border-bottom: 5px solid #321a0b;
+
+  box-shadow:
+    5px 8px 8px rgba(0, 0, 0, 0.55),
+    inset 2px 2px 3px rgba(255, 255, 255, 0.18);
+
+  z-index: 4;
+}
+
+.cell.barrier:hover {
+  transform:
+    translateY(-7px)
+    translateZ(15px);
+
+  filter: brightness(1.12);
+}
+
+.cell.player {
+  /*
+     Keep the tile itself gray.
+     The circular pseudo-element becomes
+     the actual token.
+  */
+
+  background:
+    linear-gradient(
+      145deg,
+      #929292,
+      #626262
+    );
+
+  color: white;
+
+  overflow: visible;
+
+  z-index: 3;
+}
+
+.cell.player::after {
+  content: "";
+
+  position: absolute;
+
+  width: 47px;
+  height: 47px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle at 32% 25%,
+      #aaffc5 0%,
+      #39d976 32%,
+      #168a47 68%,
+      #075a2a 100%
+    );
+
+  border:
+    3px solid #b8ffce;
+
+  box-shadow:
+    0 6px 0 #064e24,
+    0 10px 9px rgba(0,0,0,.55),
+    inset 0 3px 4px rgba(255,255,255,.5);
+
+  transform:
+    translateZ(15px);
+
+  z-index: -1;
+}
+
+.cell.enemy {
+  background:
+    linear-gradient(
+      145deg,
+      #929292,
+      #626262
+    );
+
+  color: white;
+
+  overflow: visible;
+
+  z-index: 3;
+}
+
+.cell.enemy::after {
+  content: "";
+
+  position: absolute;
+
+  width: 47px;
+  height: 47px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle at 32% 25%,
+      #edb8ff 0%,
+      #ae55d1 32%,
+      #742b91 68%,
+      #421052 100%
+    );
+
+  border:
+    3px solid #e4aaff;
+
+  box-shadow:
+    0 6px 0 #3b0d49,
+    0 10px 9px rgba(0,0,0,.55),
+    inset 0 3px 4px rgba(255,255,255,.45);
+
+  transform:
+    translateZ(15px);
+
+  z-index: -1;
+}
+
+/* Keep character names above the token */
+
+.cell.player,
+.cell.enemy {
+  text-shadow:
+    0 1px 2px black,
+    0 2px 4px black;
+}
+
+.cell.has-los {
+  box-shadow:
+    inset 0 0 0 4px #ff2525,
+    0 0 10px #ff2525,
+    0 0 22px rgba(255,0,0,.7);
+
+  animation:
+    losPulse 1.2s infinite alternate;
+}
+
+@keyframes losPulse {
+
+  from {
+    filter: brightness(1);
+  }
+
+  to {
+    filter: brightness(1.3);
+  }
+
+}
+
+.bottom-section {
+  padding: 16px 20px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #292929,
+      #1d1d1d
+    );
+
+  border-top:
+    2px solid #444;
+
+  box-shadow:
+    0 -5px 15px rgba(0,0,0,.35);
+
+  position: relative;
+  z-index: 10;
+}
+
+#status {
+  min-height: 25px;
+
+  margin-bottom: 12px;
+
+  font-size: 18px;
+  font-weight: bold;
+
+  text-shadow:
+    0 2px 3px black;
+}
+
+.safe {
+  color: #55ff88;
+}
+
+.danger {
+  color: #ff5555;
+}
+
+.legend {
+  display: flex;
+
+  justify-content: center;
+  align-items: center;
+
+  gap: 24px;
+
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 22px;
+  height: 22px;
+
+  border: 1px solid white;
+
+  box-shadow:
+    2px 3px 4px rgba(0,0,0,.6);
+}
+
+.los-example {
+  background: #9b59b6;
+
+  box-shadow:
+    inset 0 0 0 3px red,
+    0 0 7px red;
+}
+
+.help-text {
+  color: #bbb;
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+/* =========================================
+   MOBILE
+   ========================================= */
+
+@media (max-width: 700px) {
+
+  .cell {
+    width: 48px;
+    height: 48px;
+
+    font-size: 9px;
+  }
+
+  .cell.player::after,
+  .cell.enemy::after {
+    width: 35px;
+    height: 35px;
+  }
+
+  .middle-section {
+    padding: 10px;
+  }
+}
+
+.cell.player,
+.cell.enemy,
+.cell.barrier {
+  cursor: grab;
+}
+
+body.dragging-piece,
+body.dragging-piece .cell {
+  cursor: grabbing !important;
+}
+
+body.dragging-piece .cell:hover {
+  transform:
+    translateY(-10px)
+    translateZ(25px);
+
+  filter: brightness(1.2);
+
+  box-shadow:
+    0 15px 18px rgba(0, 0, 0, 0.65);
+}
+
+.cell.drag-target-valid {
+  outline: 4px solid #39ff88;
+  outline-offset: -4px;
+
+  box-shadow:
+    inset 0 0 15px rgba(57, 255, 136, 0.8),
+    0 0 15px rgba(57, 255, 136, 0.9);
+
+  filter: brightness(1.3);
+
+  z-index: 20;
+}
+
+.cell.drag-target-invalid {
+  outline: 4px solid #ff3b3b;
+  outline-offset: -4px;
+
+  box-shadow:
+    inset 0 0 15px rgba(255, 59, 59, 0.8),
+    0 0 15px rgba(255, 59, 59, 0.9);
+
+  filter: brightness(1.2);
+
+  z-index: 20;
+}
+
+.cell.enemy-visible {
+  position: relative;
+}
+
+.cell.enemy-visible::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  background:
+    rgba(155, 89, 182, 0.30);
+
+  box-shadow:
+    inset 0 0 12px
+    rgba(180, 70, 220, 0.45);
+
+  pointer-events: none;
+
+  z-index: 1;
+}
+
+.cell.enemy,
+.cell.player,
+.cell.barrier {
+  position: relative;
+}
+
+.cell.player.has-los {
+  box-shadow:
+    inset 0 0 0 5px #ff3333,
+    0 0 12px #ff3333,
+    0 0 24px rgba(255, 0, 0, 0.8);
+
+  z-index: 20;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- TOP -->
+<header class="top-section">
+
+  <h1>Stealth Battle Grid</h1>
+
+  <div class="grid-controls">
+    <label for="rowsInput">Rows:</label>
+    <input
+      id="rowsInput"
+      type="number"
+      min="2"
+      max="30"
+      value="7"
+    >
+
+    <label for="colsInput">Columns:</label>
+    <input
+      id="colsInput"
+      type="number"
+      min="2"
+      max="30"
+      value="7"
+    >
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+
+    <div class="tool-row">
+
+      <button
+        class="barrier-btn selected"
+        data-tool="barrier"
+        onclick="selectTool('barrier', this)"
+      >
+        &#x1F9F1; Barrier
+      </button>
+
+      <button
+        class="player-btn"
+        data-tool="player"
+        onclick="selectTool('player', this)"
+      >
+        &#x1F9D1; Player
+      </button>
+
+      <button
+        class="enemy-btn"
+        data-tool="enemy"
+        onclick="selectTool('enemy', this)"
+      >
+        &#128520; Enemy
+      </button>
+
+      <button
+        class="erase-btn"
+        data-tool="erase"
+        onclick="selectTool('erase', this)"
+      >
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eraser" viewBox="0 0 16 16">
+<path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414zM8.746 13.547 3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293z"/>
+</svg> Eraser
+      </button>
+
+    </div>
+
+    <!-- CLEAR GRID ON ITS OWN LINE -->
+    <div class="clear-row">
+      <button
+        class="clear-btn"
+        onclick="clearGrid()"
+      >
+        Clear Grid
+      </button>
+    </div>
+
+  </div>
+
+  <div class="help-text">
+    Click to place a piece. Double-click a player or enemy
+    to rename it.
+  </div>
+
+</header>
+
+<main class="middle-section">
+  <div id="grid-container">
+    <div id="grid"></div>
+  </div>
+</main>
+
+
+<!-- BOTTOM -->
+
+<footer class="bottom-section">
+
+  <div id="status" class="safe">
+    ✓ No enemy currently has line of sight.
+  </div>
+
+  <div class="legend">
+
+    <div class="legend-item">
+      &#x1F9F1; Barrier
+    </div>
+
+    <div class="legend-item">
+      <div
+        class="legend-color"
+        style="background:#2ecc71;"
+      ></div>
+      Player
+    </div>
+
+    <div class="legend-item">
+      <div
+        class="legend-color"
+        style="background:#9b59b6;"
+      ></div>
+      Enemy
+    </div>
+
+    <div class="legend-item">
+      <div class="legend-color los-example"></div>
+      Has Line of Sight
+    </div>
+  </div>
+</footer>
+<script>
+
+/* =========================================
+   SETTINGS AND STATE
+   ========================================= */
+
+let ROWS = 7;
+let COLS = 7;
+
+const CELL_SIZE = 65;
+
+let selectedTool = "barrier";
+
+let nextCharacterId = 1;
+
+// Each square is stored as:
+// { type: "player", name: "...", id: 1 }
+// or null for an empty square.
+
+let board = [];
+
+// Tracks existing enemy/player LOS pairs.
+let previousLOSPairs = new Set();
+
+// Drag Pieces
+let draggedPiece = null;
+let dragStartRow = null;
+let dragStartCol = null;
+
+let isDragging = false;
+
+let pointerStartX = 0;
+let pointerStartY = 0;
+let currentDragTarget = null;
+
+const DRAG_DISTANCE = 6;
+
+
+const grid = document.getElementById("grid");
+const statusDisplay = document.getElementById("status");
+
+const rowsInput = document.getElementById("rowsInput");
+const colsInput = document.getElementById("colsInput");
+
+
+function initializeBoard() {
+
+  board = Array.from(
+    { length: ROWS },
+    () => Array(COLS).fill(null)
+  );
+
+}
+
+
+function startDrag(event, row, col) {
+  // Left mouse button only
+  if (event.button !== 0) {
+    return;
+  }
+
+  if (selectedTool === "erase") {
+    // Remove Player, Enemy, or Barrier
+    board[row][col] = null;
+
+    // Remove any drag highlight
+    clearDragHighlight();
+
+    // Reset drag state
+    draggedPiece = null;
+    dragStartRow = null;
+    dragStartCol = null;
+    isDragging = false;
+
+    // Redraw
+    renderBoard();
+
+    // Recalculate LOS
+    checkAllLineOfSight();
+
+    event.preventDefault();
+
+    return;
+  }
+
+  const piece = board[row][col];
+
+  dragStartRow = row;
+  dragStartCol = col;
+
+  pointerStartX = event.clientX;
+  pointerStartY = event.clientY;
+
+  isDragging = false;
+
+  draggedPiece = piece || null;
+
+  if (piece) {
+    event.currentTarget.setPointerCapture(
+      event.pointerId
+    );
+  }
+}
+
+
+function continueDrag(event) {
+  if (
+    dragStartRow === null ||
+    dragStartCol === null
+  ) {
+    return;
+  }
+
+
+  const dx =
+    event.clientX - pointerStartX;
+
+  const dy =
+    event.clientY - pointerStartY;
+
+
+  const distance =
+    Math.sqrt(
+      dx * dx +
+      dy * dy
+    );
+
+  if (
+    !isDragging &&
+    distance >= DRAG_DISTANCE
+  ) {
+
+    isDragging = true;
+    document.body.classList.add(
+      "dragging-piece"
+    );
+  }
+
+  if (
+    !isDragging ||
+    !draggedPiece
+  ) {
+    return;
+  }
+
+  const elementUnderMouse =
+    document.elementFromPoint(
+      event.clientX,
+      event.clientY
+    );
+
+  const targetCell =
+    elementUnderMouse
+      ? elementUnderMouse.closest(".cell")
+      : null;
+
+  clearDragHighlight();
+
+  if (!targetCell) {
+    return;
+  }
+
+  currentDragTarget =
+    targetCell;
+
+  const targetRow =
+    Number(
+      targetCell.dataset.row
+    );
+
+  const targetCol =
+    Number(
+      targetCell.dataset.col
+    );
+
+  const sameSquare =
+    targetRow === dragStartRow &&
+    targetCol === dragStartCol;
+
+
+  if (sameSquare) {
+    targetCell.classList.add(
+      "drag-target-invalid"
+    );
+    return;
+  }
+
+  if (
+    board[targetRow][targetCol] === null
+  ) {
+    targetCell.classList.add(
+      "drag-target-valid"
+    );
+  }  else {
+    targetCell.classList.add(
+      "drag-target-invalid"
+    );
+  }
+}
+
+
+function finishDrag(event) {
+  if (
+    dragStartRow === null ||
+    dragStartCol === null
+  ) {
+    return;
+  }
+
+  const elementUnderMouse =
+    document.elementFromPoint(
+      event.clientX,
+      event.clientY
+    );
+
+  const targetCell =
+    elementUnderMouse
+      ? elementUnderMouse.closest(".cell")
+      : null;
+
+  if (
+    isDragging &&
+    draggedPiece
+  ) {
+    console.log(`dragStartRow: ${dragStartRow} dragStartCol: ${dragStartCol}`);
+
+    if (targetCell) {
+
+      const targetRow =
+        Number(targetCell.dataset.row);
+
+      const targetCol =
+        Number(targetCell.dataset.col);
+
+      const sameSquare =
+        targetRow === dragStartRow &&
+        targetCol === dragStartCol;
+
+      if (!sameSquare) {
+        if (
+          board[targetRow][targetCol] === null
+        ) {
+          board[targetRow][targetCol] =
+            draggedPiece;
+          board[dragStartRow][dragStartCol] =
+            null;
+        }
+      }
+    }
+
+    renderBoard();
+    checkAllLineOfSight();
+  }
+
+
+  /* ======================================
+     NORMAL CLICK
+     ====================================== */
+
+  else if (!isDragging) {
+
+    /*
+      If we originally clicked an EMPTY
+      square, use normal placement.
+    */
+    if (!draggedPiece) {
+      placeObject(
+        dragStartRow,
+        dragStartCol
+      );
+
+    }
+
+  }
+
+
+  resetDrag();
+
+}
+
+
+function cancelDrag(event) {
+  resetDrag();
+}
+
+
+function clearDragHighlight() {
+
+  if (currentDragTarget) {
+
+    currentDragTarget.classList.remove(
+      "drag-target-valid",
+      "drag-target-invalid"
+    );
+
+  }
+
+  currentDragTarget = null;
+
+}
+
+
+function resetDrag() {
+
+  clearDragHighlight();
+
+  draggedPiece = null;
+
+  dragStartRow = null;
+  dragStartCol = null;
+
+  pointerStartX = 0;
+  pointerStartY = 0;
+
+  isDragging = false;
+
+  document.body.classList.remove(
+    "dragging-piece"
+  );
+
+}
+
+
+function createGrid() {
+
+  grid.innerHTML = "";
+
+  grid.style.gridTemplateColumns =
+    `repeat(${COLS}, ${CELL_SIZE}px)`;
+
+  for (let row = 0; row < ROWS; row++) {
+
+    for (let col = 0; col < COLS; col++) {
+
+      const cell = document.createElement("div");
+
+      cell.classList.add("cell");
+
+      cell.dataset.row = row;
+      cell.dataset.col = col;
+
+      cell.addEventListener(
+        "pointerdown",
+        function(event) {
+          startDrag(event, row, col);
+        }
+      );
+
+      cell.addEventListener(
+        "pointermove",
+        function(event) {
+          continueDrag(event);
+        }
+      );
+
+      cell.addEventListener(
+        "pointerup",
+        function(event) {
+          finishDrag(event);
+        }
+      );
+
+      cell.addEventListener(
+        "pointercancel",
+        function(event) {
+          cancelDrag(event);
+        }
+      );
+
+      cell.addEventListener(
+        "dblclick",
+        function() {
+          renameCharacter(row, col);
+        }
+      );
+
+      grid.appendChild(cell);
+
+    }
+  }
+  renderBoard();
+}
+
+
+function fitTextToContainer(textElement, containerElement) {
+  // Start with a reasonably large max size or pull from current styling
+  let minSize = 10;
+  let maxSize = 100;
+  let currentSize = maxSize;
+
+  // Set the initial font size to the max limit
+  textElement.style.fontSize = currentSize + 'px';
+
+  // Binary search loop or downward loop to shrink text until it fits completely
+  // Checks both horizontal (scrollWidth) and vertical (scrollHeight) overflow
+  while (
+    (textElement.scrollWidth > containerElement.clientWidth ||
+     textElement.scrollHeight > containerElement.clientHeight) &&
+    currentSize > minSize
+  ) {
+    currentSize--;
+    textElement.style.fontSize = currentSize + 'px';
+  }
+}
+
+
+function renderBoard() {
+
+  const cells = grid.querySelectorAll(".cell");
+
+  cells.forEach(cell => {
+
+    const row = Number(cell.dataset.row);
+    const col = Number(cell.dataset.col);
+
+    const piece = board[row][col];
+
+    cell.className = "cell";
+    cell.textContent = "";
+    cell.title = `Row ${row + 1}, Column ${col + 1}`;
+
+    if (!piece) {
+      return;
+    }
+
+    cell.classList.add(piece.type);
+
+    if (piece.type === "barrier") {
+      cell.textContent = "\u{1F9F1}";
+    } else {
+      cell.textContent = piece.name;
+
+      cell.title =
+        `${piece.name} (${piece.type}) - ` +
+        `Row ${row + 1}, Column ${col + 1}`;
+    }
+
+  });
+}
+
+
+// AUTOMATIC GRID RESIZING
+rowsInput.addEventListener("input", updateGridSize);
+colsInput.addEventListener("input", updateGridSize);
+
+function updateGridSize() {
+
+  const newRows = Number(rowsInput.value);
+  const newCols = Number(colsInput.value);
+
+  if (
+    !Number.isInteger(newRows) ||
+    !Number.isInteger(newCols) ||
+    newRows < 2 ||
+    newRows > 30 ||
+    newCols < 2 ||
+    newCols > 30
+  ) {
+    return;
+  }
+
+  if (newRows === ROWS && newCols === COLS) {
+    return;
+  }
+
+  // Preserve existing pieces within new boundaries.
+
+  const oldBoard = board;
+  const oldRows = ROWS;
+  const oldCols = COLS;
+
+  ROWS = newRows;
+  COLS = newCols;
+
+  initializeBoard();
+
+  for (
+    let row = 0;
+    row < Math.min(oldRows, ROWS);
+    row++
+  ) {
+
+    for (
+      let col = 0;
+      col < Math.min(oldCols, COLS);
+      col++
+    ) {
+      board[row][col] = oldBoard[row][col];
+    }
+  }
+
+  createGrid();
+  checkAllLineOfSight();
+}
+
+
+function selectTool(tool, button) {
+
+  selectedTool = tool;
+
+  document.querySelectorAll("[data-tool]")
+    .forEach(btn => {
+      btn.classList.remove("selected");
+    });
+
+  button.classList.add("selected");
+
+}
+
+
+function getCharacterName(type) {
+
+  if (type === "player") {
+    return playerNameInput.value.trim() || "Player";
+  }
+
+  if (type === "enemy") {
+    return enemyNameInput.value.trim() || "Enemy";
+  }
+
+  return "";
+
+}
+
+
+function placeObject(row, col) {
+
+  /*
+    Wait briefly so a double-click on an existing
+    character doesn't replace the character before
+    the rename action occurs.
+  */
+
+  if (window.pendingClickTimer) {
+    clearTimeout(window.pendingClickTimer);
+  }
+
+  window.pendingClickTimer = setTimeout(() => {
+
+    window.pendingClickTimer = null;
+
+    if (selectedTool === "barrier") {
+      board[row][col] = {
+        type: "barrier",
+        name: "Barrier",
+        id: nextCharacterId++
+      };
+
+    }  else if (selectedTool === "player") {
+      board[row][col] = {
+        type: "player",
+        name: "Player",
+        id: nextCharacterId++
+      };
+
+    }  else if (selectedTool === "enemy") {
+      board[row][col] = {
+        type: "enemy",
+        name: "Enemy",
+        id: nextCharacterId++
+      };
+
+    }
+
+    renderBoard();
+    checkAllLineOfSight();
+
+  }, 220);
+
+}
+
+
+function renameCharacter(row, col) {
+  if (window.pendingClickTimer) {
+
+    clearTimeout(window.pendingClickTimer);
+
+    window.pendingClickTimer = null;
+
+  }
+
+
+  const piece = board[row][col];
+
+
+  // Nothing in this square.
+  if (!piece) {
+    return;
+  }
+
+  // Barriers cannot be renamed.
+  if (
+    piece.type !== "player" &&
+    piece.type !== "enemy"
+  ) {
+    return;
+  }
+
+  const newName = prompt(
+    `Rename ${piece.name}:`,
+    piece.name
+  );
+
+  // User pressed Cancel.
+  if (newName === null) {
+    return;
+  }
+
+  const trimmedName =
+    newName.trim();
+
+  if (!trimmedName) {
+
+    alert(
+      "Character name cannot be empty."
+    );
+    return;
+  }
+
+  piece.name =
+    trimmedName.slice(0, 40);
+
+  renderBoard();
+  checkAllLineOfSight();
+}
+
+
+function getPiece(row, col) {
+
+  if (
+    row < 0 ||
+    row >= ROWS ||
+    col < 0 ||
+    col >= COLS
+  ) {
+    return null;
+  }
+
+  return board[row][col];
+
+}
+
+
+function isBarrier(row, col) {
+
+  const piece = getPiece(row, col);
+
+  return (
+    piece !== null &&
+    piece.type === "barrier"
+  );
+
+}
+
+
+function isEnemySurrounded(row, col) {
+
+  /*
+           B
+         B E B
+           B
+
+    Four barriers immediately adjacent
+    to the enemy block all LOS.
+  */
+
+  return (
+    isBarrier(row - 1, col) &&
+    isBarrier(row + 1, col) &&
+    isBarrier(row, col - 1) &&
+    isBarrier(row, col + 1)
+  );
+
+}
+
+
+function hasLineOfSight(
+  enemyRow,
+  enemyCol,
+  playerRow,
+  playerCol
+) {
+
+  // Rule 1: Fully surrounded enemy.
+
+  if (isEnemySurrounded(enemyRow, enemyCol)) {
+    return false;
+  }
+
+  // Creature centers.
+
+  const startX = enemyCol + 0.5;
+  const startY = enemyRow + 0.5;
+
+  const endX = playerCol + 0.5;
+  const endY = playerRow + 0.5;
+
+  const dx = endX - startX;
+  const dy = endY - startY;
+
+  let currentRow = enemyRow;
+  let currentCol = enemyCol;
+
+  const stepX = Math.sign(dx);
+  const stepY = Math.sign(dy);
+
+  const tDeltaX =
+    dx === 0 ? Infinity : Math.abs(1 / dx);
+
+  const tDeltaY =
+    dy === 0 ? Infinity : Math.abs(1 / dy);
+
+  let tMaxX =
+    dx === 0
+      ? Infinity
+      : 0.5 / Math.abs(dx);
+
+  let tMaxY =
+    dy === 0
+      ? Infinity
+      : 0.5 / Math.abs(dy);
+
+  const EPSILON = 1e-10;
+
+  while (
+    currentRow !== playerRow ||
+    currentCol !== playerCol
+  ) {
+
+    // Vertical boundary crossing.
+
+    if (tMaxX < tMaxY - EPSILON) {
+
+      currentCol += stepX;
+      tMaxX += tDeltaX;
+
+      if (isBarrier(currentRow, currentCol)) {
+        return false;
+      }
+
+    }
+    // Horizontal boundary crossing.
+    else if (tMaxY < tMaxX - EPSILON) {
+
+      currentRow += stepY;
+      tMaxY += tDeltaY;
+
+      if (isBarrier(currentRow, currentCol)) {
+        return false;
+      }
+
+    }
+    // Exact diagonal corner crossing.
+    else {
+
+      const nextRow = currentRow + stepY;
+      const nextCol = currentCol + stepX;
+
+      const side1Barrier =
+        isBarrier(currentRow, nextCol);
+
+      const side2Barrier =
+        isBarrier(nextRow, currentCol);
+
+      if (side1Barrier && side2Barrier) {
+        return false;
+      }
+
+      currentRow = nextRow;
+      currentCol = nextCol;
+
+      tMaxX += tDeltaX;
+      tMaxY += tDeltaY;
+
+      if (isBarrier(currentRow, currentCol)) {
+        return false;
+      }
+
+    }
+
+    // Safety check.
+    if (
+      currentRow < 0 ||
+      currentRow >= ROWS ||
+      currentCol < 0 ||
+      currentCol >= COLS
+    ) {
+      return false;
+    }
+
+  }
+
+  return true;
+
+}
+
+
+function checkAllLineOfSight() {
+
+  const enemies = [];
+  const players = [];
+
+  for (let row = 0; row < ROWS; row++) {
+
+    for (let col = 0; col < COLS; col++) {
+
+      const piece = board[row][col];
+
+      if (!piece) {
+        continue;
+      }
+
+      const entry = {
+        ...piece,
+        row,
+        col
+      };
+
+      if (piece.type === "enemy") {
+        enemies.push(entry);
+      }
+
+      if (piece.type === "player") {
+        players.push(entry);
+      }
+
+    }
+  }
+
+  // Remove old highlights.
+  document.querySelectorAll(".has-los")
+    .forEach(cell => {
+      cell.classList.remove("has-los");
+    });
+
+  const currentLOSPairs = new Set();
+  const newAlerts = [];
+
+  let totalLOS = 0;
+
+  for (const enemy of enemies) {
+
+    if (isEnemySurrounded(enemy.row, enemy.col)) {
+      continue;
+    }
+
+    for (const player of players) {
+
+      if (
+        hasLineOfSight(
+          enemy.row,
+          enemy.col,
+          player.row,
+          player.col
+        )
+      ) {
+
+        // IDs stay stable when names change
+        // or grid dimensions change.
+        const pairID =
+          `${enemy.id}-${player.id}`;
+
+        currentLOSPairs.add(pairID);
+
+        totalLOS++;
+
+        // Highlight enemy.
+        const enemyCell = grid.querySelector(
+          `.cell[data-row="${enemy.row}"]` +
+          `[data-col="${enemy.col}"]`
+        );
+
+        // Highlight player.
+        const playerCell = grid.querySelector(
+          `.cell[data-row="${player.row}"]` +
+          `[data-col="${player.col}"]`
+        );
+
+        if (enemyCell) {
+          enemyCell.classList.add("has-los");
+        }
+
+        if (playerCell) {
+          playerCell.classList.add("has-los");
+        }
+
+        // New LOS connection.
+        if (!previousLOSPairs.has(pairID)) {
+
+          newAlerts.push(
+            `${enemy.name} (Row ${enemy.row + 1}, ` +
+            `Column ${enemy.col + 1}) can see ` +
+            `${player.name} (Row ${player.row + 1}, ` +
+            `Column ${player.col + 1})`
+          );
+        }
+      }
+    }
+  }
+
+  if (totalLOS > 0) {
+
+    statusDisplay.textContent =
+      `⚠ ${totalLOS} enemy/player ` +
+      `Line of Sight connection(s) detected!`;
+
+    statusDisplay.className = "danger";
+
+  } else {
+
+    updateSafeStatus();
+
+  }
+
+  previousLOSPairs = currentLOSPairs;
+
+  // One combined alert instead of many popups.
+  // Uncomment to alert the user in a popup
+  // if (newAlerts.length > 0) {
+  //   alert(
+  //     "⚠ NEW LINE OF SIGHT!\n\n" +
+  //     newAlerts.join("\n\n")
+  //   );
+  // }
+
+  updateEnemyVisionOverlay();
+}
+
+
+function updateSafeStatus() {
+
+  statusDisplay.textContent =
+    "✓ No enemy currently has line of sight.";
+
+  statusDisplay.className = "safe";
+
+}
+
+
+function clearGrid() {
+
+  if (window.pendingClickTimer) {
+    clearTimeout(window.pendingClickTimer);
+    window.pendingClickTimer = null;
+  }
+
+  initializeBoard();
+
+  previousLOSPairs.clear();
+
+  renderBoard();
+
+  updateSafeStatus();
+
+}
+
+
+function canEnemySeeCell(
+  enemyRow,
+  enemyCol,
+  targetRow,
+  targetCol
+) {
+  if (
+    enemyRow === targetRow &&
+    enemyCol === targetCol
+  ) {
+    return true;
+  }
+
+  if (
+    isEnemySurrounded(
+      enemyRow,
+      enemyCol
+    )
+  ) {
+    return false;
+  }
+
+  const startX =
+    enemyCol + 0.5;
+
+  const startY =
+    enemyRow + 0.5;
+
+  const endX =
+    targetCol + 0.5;
+
+  const endY =
+    targetRow + 0.5;
+
+
+  const dx =
+    endX - startX;
+
+  const dy =
+    endY - startY;
+
+
+  let currentRow =
+    enemyRow;
+
+  let currentCol =
+    enemyCol;
+
+
+  const stepX =
+    Math.sign(dx);
+
+  const stepY =
+    Math.sign(dy);
+
+  const tDeltaX =
+    dx === 0
+      ? Infinity
+      : Math.abs(1 / dx);
+
+
+  const tDeltaY =
+    dy === 0
+      ? Infinity
+      : Math.abs(1 / dy);
+
+
+  let tMaxX =
+    dx === 0
+      ? Infinity
+      : 0.5 / Math.abs(dx);
+
+  let tMaxY =
+    dy === 0
+      ? Infinity
+      : 0.5 / Math.abs(dy);
+
+  const EPSILON =
+    1e-10;
+
+  while (
+    currentRow !== targetRow ||
+    currentCol !== targetCol
+  ) {
+    if (
+      tMaxX <
+      tMaxY - EPSILON
+    ) {
+      currentCol += stepX;
+      tMaxX += tDeltaX;
+    } else if (
+      tMaxY <
+      tMaxX - EPSILON
+    ) {
+      currentRow += stepY;
+      tMaxY += tDeltaY;
+    } else {
+
+      const nextRow =
+        currentRow + stepY;
+
+      const nextCol =
+        currentCol + stepX;
+
+      const side1Barrier =
+        isBarrier(
+          currentRow,
+          nextCol
+        );
+
+      const side2Barrier =
+        isBarrier(
+          nextRow,
+          currentCol
+        );
+
+
+      if (
+        side1Barrier &&
+        side2Barrier
+      ) {
+        return false;
+      }
+
+
+      currentRow =
+        nextRow;
+
+      currentCol =
+        nextCol;
+
+      tMaxX += tDeltaX;
+      tMaxY += tDeltaY;
+
+    }
+
+    if (
+      currentRow < 0 ||
+      currentRow >= ROWS ||
+      currentCol < 0 ||
+      currentCol >= COLS
+    ) {
+      return false;
+    }
+
+    if (
+      currentRow === targetRow &&
+      currentCol === targetCol
+    ) {
+      return true;
+    }
+
+    if (
+      isBarrier(
+        currentRow,
+        currentCol
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+
+function updateEnemyVisionOverlay() {
+  document
+    .querySelectorAll(
+      ".enemy-visible"
+    )
+    .forEach(cell => {
+
+      cell.classList.remove(
+        "enemy-visible"
+      );
+
+    });
+
+  for (
+    let enemyRow = 0;
+    enemyRow < ROWS;
+    enemyRow++
+  ) {
+
+    for (
+      let enemyCol = 0;
+      enemyCol < COLS;
+      enemyCol++
+    ) {
+      const piece =
+        board[enemyRow][enemyCol];
+
+      if (
+        !piece ||
+        piece.type !== "enemy"
+      ) {
+        continue;
+      }
+
+      for (
+        let targetRow = 0;
+        targetRow < ROWS;
+        targetRow++
+      ) {
+        for (
+          let targetCol = 0;
+          targetCol < COLS;
+          targetCol++
+        ) {
+          if (
+            canEnemySeeCell(
+              enemyRow,
+              enemyCol,
+              targetRow,
+              targetCol
+            )
+          ) {
+            const cell =
+              grid.querySelector(
+                `.cell[data-row="${targetRow}"]` +
+                `[data-col="${targetCol}"]`
+              );
+
+            if (cell) {
+              cell.classList.add(
+                "enemy-visible"
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+// INITIALIZE
+initializeBoard();
+createGrid();
+updateEnemyVisionOverlay();
+
+</script>
+
+</body>
+</html>
