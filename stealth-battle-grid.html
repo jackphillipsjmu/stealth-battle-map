@@ -276,7 +276,21 @@ button.selected {
     preserve-3d;
 }
 
+body.painting-cover,
+body.painting-cover .cell {
+  cursor: crosshair !important;
+}
+
+/* .cell {
+  user-select: none;
+  touch-action: none;
+} */
+
 .cell {
+  // Select/Drag to craete tokens
+  user-select: none;
+  touch-action: none;
+
   position: relative;
 
   width: 65px;
@@ -1012,6 +1026,10 @@ let pointerStartX = 0;
 let pointerStartY = 0;
 let currentDragTarget = null;
 let enemyVisionEnabled = true;
+// Painting pieces
+let isPaintingCover = false;
+let lastPaintedRow = null;
+let lastPaintedCol = null;
 
 const DRAG_DISTANCE = 6;
 const grid = document.getElementById("grid");
@@ -1031,57 +1049,148 @@ function initializeBoard() {
 }
 
 
-function startDrag(event, row, col) {
-  // Left mouse button only
-  if (event.button !== 0) {
+function isCoverTool() {
+  return (
+    selectedTool === "barrier" ||
+    selectedTool === "half-cover"
+  );
+}
+
+
+function startDrag(
+  event,
+  row,
+  col
+) {
+  // Left mouse button only.
+  if (
+    event.button !== 0
+  ) {
     return;
   }
 
-  if (selectedTool === "erase") {
-    // Remove Player, Enemy, or Barrier
-    board[row][col] = null;
+  const piece =
+    board[row][col];
 
-    // Remove any drag highlight
-    clearDragHighlight();
+  // ERASER
+  if (
+    selectedTool === "erase"
+  ) {
 
-    // Reset drag state
-    draggedPiece = null;
-    dragStartRow = null;
-    dragStartCol = null;
+    board[row][col] =
+      null;
+
+    renderBoard();
+    checkAllLineOfSight();
+    saveBattleGrid();
+    event.preventDefault();
+
+    return;
+
+  }
+
+  // EXISTING PIECE
+  // Existing pieces still use your normal
+  // drag-to-move behavior. This check MUST happen before cover painting
+  // so clicking an existing barrier lets you move it.
+  if (piece) {
+    draggedPiece = piece;
+    dragStartRow = row;
+    dragStartCol = col;
+    pointerStartX = event.clientX;
+    pointerStartY = event.clientY;
     isDragging = false;
 
-    // Redraw
-    renderBoard();
+    event.currentTarget
+      .setPointerCapture(
+        event.pointerId
+      );
+    return;
+  }
 
-    // Recalculate LOS
-    checkAllLineOfSight();
+  // COVER PAINTING
+  if (
+    isCoverTool()
+  ) {
+
+    isPaintingCover = true;
+    lastPaintedRow = null;
+    lastPaintedCol = null;
+
+    // Paint the first square immediately.
+    paintCoverCell(
+      row,
+      col
+    );
+
+    // Keep receiving pointer events even when leaving the original square.
+    event.currentTarget
+      .setPointerCapture(
+        event.pointerId
+      );
+
+    document.body.classList.add(
+      "painting-cover"
+    );
 
     event.preventDefault();
 
     return;
   }
 
-  const piece = board[row][col];
-
+  // NORMAL CLICK
   dragStartRow = row;
   dragStartCol = col;
-
   pointerStartX = event.clientX;
   pointerStartY = event.clientY;
-
   isDragging = false;
-
-  draggedPiece = piece || null;
-
-  if (piece) {
-    event.currentTarget.setPointerCapture(
-      event.pointerId
-    );
-  }
+  draggedPiece = null;
 }
 
 
 function continueDrag(event) {
+  // COVER PAINTING
+  if (
+    isPaintingCover
+  ) {
+    const elementUnderMouse =
+      document.elementFromPoint(
+        event.clientX,
+        event.clientY
+      );
+
+    const targetCell =
+      elementUnderMouse
+        ? elementUnderMouse.closest(
+            ".cell"
+          )
+        : null;
+
+    if (!targetCell) {
+      return;
+    }
+
+    const targetRow =
+      Number(
+        targetCell.dataset.row
+      );
+
+    const targetCol =
+      Number(
+        targetCell.dataset.col
+      );
+
+    paintCoverCell(
+      targetRow,
+      targetCol
+    );
+
+    event.preventDefault();
+
+    return;
+  }
+
+  // NORMAL PIECE DRAGGING
   if (
     dragStartRow === null ||
     dragStartCol === null
@@ -1089,13 +1198,13 @@ function continueDrag(event) {
     return;
   }
 
-
   const dx =
-    event.clientX - pointerStartX;
+    event.clientX -
+    pointerStartX;
 
   const dy =
-    event.clientY - pointerStartY;
-
+    event.clientY -
+    pointerStartY;
 
   const distance =
     Math.sqrt(
@@ -1108,10 +1217,13 @@ function continueDrag(event) {
     distance >= DRAG_DISTANCE
   ) {
 
-    isDragging = true;
+    isDragging =
+      true;
+
     document.body.classList.add(
       "dragging-piece"
     );
+
   }
 
   if (
@@ -1129,7 +1241,9 @@ function continueDrag(event) {
 
   const targetCell =
     elementUnderMouse
-      ? elementUnderMouse.closest(".cell")
+      ? elementUnderMouse.closest(
+          ".cell"
+        )
       : null;
 
   clearDragHighlight();
@@ -1155,7 +1269,6 @@ function continueDrag(event) {
     targetRow === dragStartRow &&
     targetCol === dragStartCol;
 
-
   if (sameSquare) {
     targetCell.classList.add(
       "drag-target-invalid"
@@ -1169,7 +1282,7 @@ function continueDrag(event) {
     targetCell.classList.add(
       "drag-target-valid"
     );
-  }  else {
+  } else {
     targetCell.classList.add(
       "drag-target-invalid"
     );
@@ -1178,6 +1291,35 @@ function continueDrag(event) {
 
 
 function finishDrag(event) {
+  // FINISH COVER PAINTING
+  if (
+    isPaintingCover
+  ) {
+    isPaintingCover = false;
+    lastPaintedRow = null;
+    lastPaintedCol = null;
+
+    document.body.classList.remove(
+      "painting-cover"
+    );
+
+    // Now perform the more expensive work once after painting finishes.
+    renderBoard();
+    checkAllLineOfSight();
+    saveBattleGrid();
+    resetDrag();
+
+    return;
+  }
+
+  // ERASER
+  if (
+    selectedTool === "erase"
+  ) {
+    resetDrag();
+    return;
+  }
+
   if (
     dragStartRow === null ||
     dragStartCol === null
@@ -1193,41 +1335,55 @@ function finishDrag(event) {
 
   const targetCell =
     elementUnderMouse
-      ? elementUnderMouse.closest(".cell")
+      ? elementUnderMouse.closest(
+          ".cell"
+        )
       : null;
 
+  //  MOVE EXISTING PIECE
   if (
     isDragging &&
     draggedPiece
   ) {
+
     if (targetCell) {
       const targetRow =
-        Number(targetCell.dataset.row);
+        Number(
+          targetCell.dataset.row
+        );
 
       const targetCol =
-        Number(targetCell.dataset.col);
+        Number(
+          targetCell.dataset.col
+        );
 
       const sameSquare =
         targetRow === dragStartRow &&
         targetCol === dragStartCol;
 
-      if (!sameSquare) {
-        if (
-          board[targetRow][targetCol] === null
-        ) {
-          board[targetRow][targetCol] =
-            draggedPiece;
-          board[dragStartRow][dragStartCol] =
-            null;
-        }
+      if (
+        !sameSquare &&
+        board[targetRow][targetCol] === null
+      ) {
+        board[targetRow][targetCol] =
+          draggedPiece;
+
+        board[dragStartRow][dragStartCol] =
+          null;
       }
     }
+
     renderBoard();
     checkAllLineOfSight();
-  } else if (!isDragging) {
-    // If we originally clicked an EMPTY
-    // square, use normal placement.
+    saveBattleGrid();
+  } else if (
+    !isDragging
+  ) {
+    // NORMAL CLICK
+    // Only empty squares get normal placement. Cover tools won't normally
+    // reach herebecause they use painting mode.
     if (!draggedPiece) {
+
       placeObject(
         dragStartRow,
         dragStartCol
@@ -1239,6 +1395,22 @@ function finishDrag(event) {
 
 
 function cancelDrag(event) {
+
+  if (
+    isPaintingCover
+  ) {
+    isPaintingCover = false;
+    lastPaintedRow = null;
+    lastPaintedCol = null;
+
+    document.body.classList.remove(
+      "painting-cover"
+    );
+
+    renderBoard();
+    checkAllLineOfSight();
+    saveBattleGrid();
+  }
   resetDrag();
 }
 
@@ -1259,17 +1431,18 @@ function resetDrag() {
   clearDragHighlight();
 
   draggedPiece = null;
-
   dragStartRow = null;
   dragStartCol = null;
-
   pointerStartX = 0;
   pointerStartY = 0;
-
   isDragging = false;
+  isPaintingCover = false;
+  lastPaintedRow = null;
+  lastPaintedCol = null;
 
   document.body.classList.remove(
-    "dragging-piece"
+    "dragging-piece",
+    "painting-cover"
   );
 }
 
@@ -1281,9 +1454,7 @@ function createGrid() {
     `repeat(${COLS}, ${CELL_SIZE}px)`;
 
   for (let row = 0; row < ROWS; row++) {
-
     for (let col = 0; col < COLS; col++) {
-
       const cell = document.createElement("div");
 
       cell.classList.add("cell");
@@ -2076,14 +2247,12 @@ function hasLineOfSight(
   if (ray.blocked) {
     return false;
   }
-
   // Two Half Covers count as Full Cover.
   if (
     ray.halfCoverCount >= 2
   ) {
     return false;
   }
-
   // Zero or one Half Cover = visible.
   return true;
 }
@@ -2746,14 +2915,137 @@ document.addEventListener(
 );
 
 
+function paintCoverCell(
+  row,
+  col
+) {
+
+  // Don't repeatedly paint the same cell while the pointer remains over it.
+  if (
+    row === lastPaintedRow &&
+    col === lastPaintedCol
+  ) {
+    return;
+  }
+
+  lastPaintedRow = row;
+  lastPaintedCol = col;
+
+  // Only paint empty cells.
+  // This prevents dragging across the board from overwriting Players, Enemies,
+  // or existing terrain.
+  if (
+    board[row][col] !== null
+  ) {
+    return;
+  }
+
+  // FULL COVER
+  if (
+    selectedTool === "barrier"
+  ) {
+
+    board[row][col] = {
+      type: "barrier",
+      name: "Full Cover",
+      id: nextCharacterId++
+    };
+  } else if (
+    // HALF COVER
+    selectedTool === "half-cover"
+  ) {
+    board[row][col] = {
+      type: "half-cover",
+      name: "Half Cover",
+      id: nextCharacterId++
+    };
+  }
+  // Redraw immediately so it feels like painting terrain.
+  renderBoard();
+}
+
+
+let textBoard = [];
+let textStr = "";
+function printBoard() {
+  const cells =
+    grid.querySelectorAll(
+      ".cell"
+    );
+
+
+
+  cells.forEach(cell => {
+    const row =
+      Number(
+        cell.dataset.row
+      );
+
+    const col =
+      Number(
+        cell.dataset.col
+      );
+
+    const piece =
+      board[row][col];
+
+      // If the row doesn't exist yet, initialize it as an empty array
+      if (!textBoard[row]) {
+        textBoard[row] = [];
+      }
+
+    if (!piece) {
+      textBoard[row][col] = ".";
+      return;
+    }
+
+    if (
+      piece.type === "barrier"
+    ) {
+      textBoard[row][col] = "F";
+    } else if (
+      piece.type ===
+      "half-cover"
+    ) {
+      textBoard[row][col] = "H";
+    } else if (
+      piece.type ===
+      "enemy"
+    ) {
+      textBoard[row][col] = "E";
+    } else {
+      textBoard[row][col] = "P";
+    }
+  });
+
+  for (
+    let r = 0;
+    r < ROWS;
+    r++
+  ) {
+
+    for (
+      let c = 0;
+      c < COLS;
+      c++
+    ) {
+      textStr += textBoard[r][c];
+      if (c + 1 === COLS) {
+        console.log(`${r} ${c}`);
+        textStr += "\n";
+      }
+    }
+  }
+}
+
+
 // INITIALIZE
 initializeBoard();
 createGrid();
 updateEnemyVisionOverlay();
 
 // INITIALIZE APPLICATION
-const saveLoaded =
-  loadBattleGrid();
+const saveLoaded = loadBattleGrid();
 
 // No saved board exists yet.
 if (!saveLoaded) {
@@ -2763,6 +3055,9 @@ if (!saveLoaded) {
 createGrid();
 // updateVisionButton();
 checkAllLineOfSight();
+
+// printBoard();
+// console.log(textStr);
 
 </script>
 
