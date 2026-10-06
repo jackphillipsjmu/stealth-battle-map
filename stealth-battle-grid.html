@@ -397,12 +397,9 @@ button.selected {
 }
 
 .cell.player {
-  /*
-     Keep the tile itself gray.
-     The circular pseudo-element becomes
-     the actual token.
-  */
-
+  // Keep the tile itself gray.
+  // The circular pseudo-element becomes
+  // the actual token.
   background:
     linear-gradient(
       145deg,
@@ -610,10 +607,7 @@ button.selected {
   margin-top: 12px;
 }
 
-/* =========================================
-   MOBILE
-   ========================================= */
-
+/* MOBILE */
 @media (max-width: 700px) {
 
   .cell {
@@ -719,7 +713,130 @@ body.dragging-piece .cell:hover {
   z-index: 20;
 }
 
+.cover-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.cover-menu {
+  display: none;
+
+  position: absolute;
+
+  top: calc(100% + 7px);
+  left: 0;
+
+  min-width: 190px;
+
+  padding: 6px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #2f3540,
+      #171a20
+    );
+
+  border:
+    1px solid #666;
+
+  border-radius:
+    8px;
+
+  box-shadow:
+    0 10px 20px
+    rgba(0, 0, 0, 0.65);
+
+  z-index: 1000;
+}
+
+.cover-menu.open {
+  display: block;
+}
+
+.cover-menu button {
+  display: block;
+
+  width: 100%;
+
+  padding:
+    10px 14px;
+
+  margin: 2px 0;
+
+  text-align: left;
+
+  color: white;
+
+  background:
+    linear-gradient(
+      180deg,
+      #555,
+      #333
+    );
+
+  border:
+    1px solid #666;
+
+  border-radius:
+    6px;
+
+  cursor: pointer;
+}
+
+.cover-menu button:hover {
+  background:
+    linear-gradient(
+      180deg,
+      #777,
+      #444
+    );
+
+  transform:
+    translateY(-1px);
+}
+
+.cell.half-cover {
+  background:
+    linear-gradient(
+      145deg,
+      #9a814e 0%,
+      #735f39 55%,
+      #493b24 100%
+    );
+
+  color: white;
+
+  font-size: 42px;
+  line-height: 1;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  transform:
+    translateY(-3px)
+    translateZ(7px);
+
+  border-top: 2px solid #c4a96c;
+  border-left: 2px solid #a58b57;
+  border-right: 3px solid #49391f;
+  border-bottom: 4px solid #392c18;
+
+  box-shadow:
+    4px 6px 7px rgba(0, 0, 0, 0.5),
+    inset 2px 2px 3px rgba(255, 255, 255, 0.15);
+
+  cursor: grab;
+
+  z-index: 3;
+}
 </style>
+
 </head>
 
 <body>
@@ -753,14 +870,30 @@ body.dragging-piece .cell:hover {
   <div class="toolbar">
 
     <div class="tool-row">
-
-      <button
-        class="barrier-btn selected"
-        data-tool="barrier"
-        onclick="selectTool('barrier', this)"
-      >
-        &#x1F9F1; Barrier
-      </button>
+      <div class="cover-dropdown">
+        <button
+          id="coverButton"
+          class="barrier-btn selected"
+          onclick="toggleCoverMenu(event)"
+        >
+          🧱 Full Cover ▼
+        </button>
+        <div
+          id="coverMenu"
+          class="cover-menu"
+        >
+          <button
+            onclick="selectCoverType('barrier', event)"
+          >
+            🧱 Full Cover
+          </button>
+          <button
+            onclick="selectCoverType('half-cover', event)"
+          >
+            🛡️ Half Cover
+          </button>
+        </div>
+      </div>
 
       <button
         class="player-btn"
@@ -817,7 +950,6 @@ body.dragging-piece .cell:hover {
 
 
 <!-- BOTTOM -->
-
 <footer class="bottom-section">
 
   <div id="status" class="safe">
@@ -826,8 +958,12 @@ body.dragging-piece .cell:hover {
 
   <div class="legend">
 
-    <div class="legend-item">
-      &#x1F9F1; Barrier
+    <div class="legend-item" title="A target has total cover if it is completely concealed by an obstacle. Enemies/Players can't be targeted directly by an attack or a spell, although some spells can reach such a target by including it in an area of effect. ">
+      &#x1F9F1; Full Cover
+    </div>
+
+    <div class="legend-item" title="A target with half cover has a +2 bonus to AC and Dexterity saving throws. A target has half cover if an obstacle blocks at least half of its body.">
+      🛡️ Half Cover
     </div>
 
     <div class="legend-item">
@@ -854,51 +990,39 @@ body.dragging-piece .cell:hover {
 </footer>
 <script>
 
-/* =========================================
-   SETTINGS AND STATE
-   ========================================= */
 
+// SETTINGS AND STATE
 let ROWS = 7;
 let COLS = 7;
-
 const CELL_SIZE = 65;
-
 let selectedTool = "barrier";
-
 let nextCharacterId = 1;
-
 // Each square is stored as:
 // { type: "player", name: "...", id: 1 }
 // or null for an empty square.
-
 let board = [];
-
 // Tracks existing enemy/player LOS pairs.
 let previousLOSPairs = new Set();
-
 // Drag Pieces
 let draggedPiece = null;
 let dragStartRow = null;
 let dragStartCol = null;
-
 let isDragging = false;
-
 let pointerStartX = 0;
 let pointerStartY = 0;
 let currentDragTarget = null;
+let enemyVisionEnabled = true;
 
 const DRAG_DISTANCE = 6;
-
-
 const grid = document.getElementById("grid");
 const statusDisplay = document.getElementById("status");
-
 const rowsInput = document.getElementById("rowsInput");
 const colsInput = document.getElementById("colsInput");
+// SAVE / LOAD BATTLE GRID
+const SAVE_KEY = "dndBattleGridSave";
 
 
 function initializeBoard() {
-
   board = Array.from(
     { length: ROWS },
     () => Array(COLS).fill(null)
@@ -1076,10 +1200,7 @@ function finishDrag(event) {
     isDragging &&
     draggedPiece
   ) {
-    console.log(`dragStartRow: ${dragStartRow} dragStartCol: ${dragStartCol}`);
-
     if (targetCell) {
-
       const targetRow =
         Number(targetCell.dataset.row);
 
@@ -1101,35 +1222,19 @@ function finishDrag(event) {
         }
       }
     }
-
     renderBoard();
     checkAllLineOfSight();
-  }
-
-
-  /* ======================================
-     NORMAL CLICK
-     ====================================== */
-
-  else if (!isDragging) {
-
-    /*
-      If we originally clicked an EMPTY
-      square, use normal placement.
-    */
+  } else if (!isDragging) {
+    // If we originally clicked an EMPTY
+    // square, use normal placement.
     if (!draggedPiece) {
       placeObject(
         dragStartRow,
         dragStartCol
       );
-
     }
-
   }
-
-
   resetDrag();
-
 }
 
 
@@ -1139,23 +1244,18 @@ function cancelDrag(event) {
 
 
 function clearDragHighlight() {
-
   if (currentDragTarget) {
-
     currentDragTarget.classList.remove(
       "drag-target-valid",
       "drag-target-invalid"
     );
 
   }
-
   currentDragTarget = null;
-
 }
 
 
 function resetDrag() {
-
   clearDragHighlight();
 
   draggedPiece = null;
@@ -1171,12 +1271,10 @@ function resetDrag() {
   document.body.classList.remove(
     "dragging-piece"
   );
-
 }
 
 
 function createGrid() {
-
   grid.innerHTML = "";
 
   grid.style.gridTemplateColumns =
@@ -1227,9 +1325,7 @@ function createGrid() {
           renameCharacter(row, col);
         }
       );
-
       grid.appendChild(cell);
-
     }
   }
   renderBoard();
@@ -1259,36 +1355,73 @@ function fitTextToContainer(textElement, containerElement) {
 
 
 function renderBoard() {
+  const cells =
+    grid.querySelectorAll(
+      ".cell"
+    );
 
-  const cells = grid.querySelectorAll(".cell");
 
   cells.forEach(cell => {
+    const row =
+      Number(
+        cell.dataset.row
+      );
 
-    const row = Number(cell.dataset.row);
-    const col = Number(cell.dataset.col);
+    const col =
+      Number(
+        cell.dataset.col
+      );
 
-    const piece = board[row][col];
+    const piece =
+      board[row][col];
 
-    cell.className = "cell";
-    cell.textContent = "";
-    cell.title = `Row ${row + 1}, Column ${col + 1}`;
+    cell.className =
+      "cell";
+
+    cell.textContent =
+      "";
+
+    cell.title =
+      `Row ${row + 1}, ` +
+      `Column ${col + 1}`;
 
     if (!piece) {
       return;
     }
 
-    cell.classList.add(piece.type);
+    cell.classList.add(
+      piece.type
+    );
 
-    if (piece.type === "barrier") {
-      cell.textContent = "\u{1F9F1}";
-    } else {
-      cell.textContent = piece.name;
+    if (
+      piece.type === "barrier"
+    ) {
+      cell.textContent =
+        "🧱";
 
       cell.title =
-        `${piece.name} (${piece.type}) - ` +
-        `Row ${row + 1}, Column ${col + 1}`;
-    }
+        "Full Cover: Blocks Line of Sight";
+    } else if (
+      piece.type ===
+      "half-cover"
+    ) {
+      cell.textContent =
+        "🛡️";
 
+      cell.title =
+        "Half Cover: +2 AC and " +
+        "+2 Dexterity Saving Throws";
+
+    } else {
+      cell.textContent =
+        piece.name;
+
+      cell.title =
+        `${piece.name} ` +
+        `(${piece.type}) - ` +
+        `Row ${row + 1}, ` +
+        `Column ${col + 1}`;
+    }
   });
 }
 
@@ -1297,8 +1430,8 @@ function renderBoard() {
 rowsInput.addEventListener("input", updateGridSize);
 colsInput.addEventListener("input", updateGridSize);
 
-function updateGridSize() {
 
+function updateGridSize() {
   const newRows = Number(rowsInput.value);
   const newCols = Number(colsInput.value);
 
@@ -1318,7 +1451,6 @@ function updateGridSize() {
   }
 
   // Preserve existing pieces within new boundaries.
-
   const oldBoard = board;
   const oldRows = ROWS;
   const oldCols = COLS;
@@ -1348,94 +1480,126 @@ function updateGridSize() {
 }
 
 
-function selectTool(tool, button) {
-
+function selectTool(
+  tool,
+  button
+) {
   selectedTool = tool;
 
-  document.querySelectorAll("[data-tool]")
+  document
+    .querySelectorAll(
+      ".tool-row > button, " +
+      ".cover-dropdown > button"
+    )
     .forEach(btn => {
-      btn.classList.remove("selected");
+      btn.classList.remove(
+        "selected"
+      );
+
     });
 
-  button.classList.add("selected");
+  button.classList.add(
+    "selected"
+  );
 
+  // Close Cover dropdown if open.
+  document
+    .getElementById(
+      "coverMenu"
+    )
+    .classList.remove(
+      "open"
+    );
 }
 
 
 function getCharacterName(type) {
-
   if (type === "player") {
     return playerNameInput.value.trim() || "Player";
   }
-
   if (type === "enemy") {
     return enemyNameInput.value.trim() || "Enemy";
   }
-
   return "";
-
 }
 
 
-function placeObject(row, col) {
-
-  /*
-    Wait briefly so a double-click on an existing
-    character doesn't replace the character before
-    the rename action occurs.
-  */
-
-  if (window.pendingClickTimer) {
-    clearTimeout(window.pendingClickTimer);
+function placeObject(
+  row,
+  col
+) {
+  if (
+    window.pendingClickTimer
+  ) {
+    clearTimeout(
+      window.pendingClickTimer
+    );
   }
 
-  window.pendingClickTimer = setTimeout(() => {
+  window.pendingClickTimer =
+    setTimeout(() => {
 
-    window.pendingClickTimer = null;
+      window.pendingClickTimer =
+        null;
 
-    if (selectedTool === "barrier") {
-      board[row][col] = {
-        type: "barrier",
-        name: "Barrier",
-        id: nextCharacterId++
-      };
+      if (
+        selectedTool === "erase"
+      ) {
+        board[row][col] =
+          null;
+      } else if (
+        selectedTool === "barrier"
+      ) {
+        board[row][col] = {
+          type: "barrier",
+          name: "Full Cover",
+          id:
+            nextCharacterId++
+        };
+      } else if (
+        selectedTool ===
+        "half-cover"
+      ) {
+        board[row][col] = {
+          type: "half-cover",
+          name: "Half Cover",
+          id:
+            nextCharacterId++
+        };
+      } else if (
+        selectedTool === "player"
+      ) {
+        board[row][col] = {
+          type: "player",
+          name: "Player",
+          id:
+            nextCharacterId++
+        };
+      } else if (
+        selectedTool === "enemy"
+      ) {
+        board[row][col] = {
+          type: "enemy",
+          name: "Enemy",
+          id:
+            nextCharacterId++
+        };
+      }
 
-    }  else if (selectedTool === "player") {
-      board[row][col] = {
-        type: "player",
-        name: "Player",
-        id: nextCharacterId++
-      };
-
-    }  else if (selectedTool === "enemy") {
-      board[row][col] = {
-        type: "enemy",
-        name: "Enemy",
-        id: nextCharacterId++
-      };
-
-    }
-
-    renderBoard();
-    checkAllLineOfSight();
-
-  }, 220);
-
+      renderBoard();
+      checkAllLineOfSight();
+      saveBattleGrid();
+    }, 220);
 }
 
 
 function renameCharacter(row, col) {
   if (window.pendingClickTimer) {
-
     clearTimeout(window.pendingClickTimer);
-
     window.pendingClickTimer = null;
-
   }
 
-
   const piece = board[row][col];
-
 
   // Nothing in this square.
   if (!piece) {
@@ -1480,7 +1644,6 @@ function renameCharacter(row, col) {
 
 
 function getPiece(row, col) {
-
   if (
     row < 0 ||
     row >= ROWS ||
@@ -1489,353 +1652,74 @@ function getPiece(row, col) {
   ) {
     return null;
   }
-
   return board[row][col];
-
 }
 
 
 function isBarrier(row, col) {
-
-  const piece = getPiece(row, col);
+  const piece =
+    getPiece(row, col);
 
   return (
     piece !== null &&
     piece.type === "barrier"
   );
+}
 
+
+function isHalfCover(row, col) {
+  const piece =
+    getPiece(row, col);
+
+  return (
+    piece !== null &&
+    piece.type === "half-cover"
+  );
 }
 
 
 function isEnemySurrounded(row, col) {
-
-  /*
-           B
-         B E B
-           B
-
-    Four barriers immediately adjacent
-    to the enemy block all LOS.
-  */
-
+  //       B
+  //     B E B
+  //       B
+  //
+  // Four barriers immediately adjacent
+  // to the enemy block all LOS.
   return (
     isBarrier(row - 1, col) &&
     isBarrier(row + 1, col) &&
     isBarrier(row, col - 1) &&
     isBarrier(row, col + 1)
   );
-
 }
 
 
-function hasLineOfSight(
-  enemyRow,
-  enemyCol,
-  playerRow,
-  playerCol
-) {
-
-  // Rule 1: Fully surrounded enemy.
-
-  if (isEnemySurrounded(enemyRow, enemyCol)) {
-    return false;
-  }
-
-  // Creature centers.
-
-  const startX = enemyCol + 0.5;
-  const startY = enemyRow + 0.5;
-
-  const endX = playerCol + 0.5;
-  const endY = playerRow + 0.5;
-
-  const dx = endX - startX;
-  const dy = endY - startY;
-
-  let currentRow = enemyRow;
-  let currentCol = enemyCol;
-
-  const stepX = Math.sign(dx);
-  const stepY = Math.sign(dy);
-
-  const tDeltaX =
-    dx === 0 ? Infinity : Math.abs(1 / dx);
-
-  const tDeltaY =
-    dy === 0 ? Infinity : Math.abs(1 / dy);
-
-  let tMaxX =
-    dx === 0
-      ? Infinity
-      : 0.5 / Math.abs(dx);
-
-  let tMaxY =
-    dy === 0
-      ? Infinity
-      : 0.5 / Math.abs(dy);
-
-  const EPSILON = 1e-10;
-
-  while (
-    currentRow !== playerRow ||
-    currentCol !== playerCol
-  ) {
-
-    // Vertical boundary crossing.
-
-    if (tMaxX < tMaxY - EPSILON) {
-
-      currentCol += stepX;
-      tMaxX += tDeltaX;
-
-      if (isBarrier(currentRow, currentCol)) {
-        return false;
-      }
-
-    }
-    // Horizontal boundary crossing.
-    else if (tMaxY < tMaxX - EPSILON) {
-
-      currentRow += stepY;
-      tMaxY += tDeltaY;
-
-      if (isBarrier(currentRow, currentCol)) {
-        return false;
-      }
-
-    }
-    // Exact diagonal corner crossing.
-    else {
-
-      const nextRow = currentRow + stepY;
-      const nextCol = currentCol + stepX;
-
-      const side1Barrier =
-        isBarrier(currentRow, nextCol);
-
-      const side2Barrier =
-        isBarrier(nextRow, currentCol);
-
-      if (side1Barrier && side2Barrier) {
-        return false;
-      }
-
-      currentRow = nextRow;
-      currentCol = nextCol;
-
-      tMaxX += tDeltaX;
-      tMaxY += tDeltaY;
-
-      if (isBarrier(currentRow, currentCol)) {
-        return false;
-      }
-
-    }
-
-    // Safety check.
-    if (
-      currentRow < 0 ||
-      currentRow >= ROWS ||
-      currentCol < 0 ||
-      currentCol >= COLS
-    ) {
-      return false;
-    }
-
-  }
-
-  return true;
-
-}
-
-
-function checkAllLineOfSight() {
-
-  const enemies = [];
-  const players = [];
-
-  for (let row = 0; row < ROWS; row++) {
-
-    for (let col = 0; col < COLS; col++) {
-
-      const piece = board[row][col];
-
-      if (!piece) {
-        continue;
-      }
-
-      const entry = {
-        ...piece,
-        row,
-        col
-      };
-
-      if (piece.type === "enemy") {
-        enemies.push(entry);
-      }
-
-      if (piece.type === "player") {
-        players.push(entry);
-      }
-
-    }
-  }
-
-  // Remove old highlights.
-  document.querySelectorAll(".has-los")
-    .forEach(cell => {
-      cell.classList.remove("has-los");
-    });
-
-  const currentLOSPairs = new Set();
-  const newAlerts = [];
-
-  let totalLOS = 0;
-
-  for (const enemy of enemies) {
-
-    if (isEnemySurrounded(enemy.row, enemy.col)) {
-      continue;
-    }
-
-    for (const player of players) {
-
-      if (
-        hasLineOfSight(
-          enemy.row,
-          enemy.col,
-          player.row,
-          player.col
-        )
-      ) {
-
-        // IDs stay stable when names change
-        // or grid dimensions change.
-        const pairID =
-          `${enemy.id}-${player.id}`;
-
-        currentLOSPairs.add(pairID);
-
-        totalLOS++;
-
-        // Highlight enemy.
-        const enemyCell = grid.querySelector(
-          `.cell[data-row="${enemy.row}"]` +
-          `[data-col="${enemy.col}"]`
-        );
-
-        // Highlight player.
-        const playerCell = grid.querySelector(
-          `.cell[data-row="${player.row}"]` +
-          `[data-col="${player.col}"]`
-        );
-
-        if (enemyCell) {
-          enemyCell.classList.add("has-los");
-        }
-
-        if (playerCell) {
-          playerCell.classList.add("has-los");
-        }
-
-        // New LOS connection.
-        if (!previousLOSPairs.has(pairID)) {
-
-          newAlerts.push(
-            `${enemy.name} (Row ${enemy.row + 1}, ` +
-            `Column ${enemy.col + 1}) can see ` +
-            `${player.name} (Row ${player.row + 1}, ` +
-            `Column ${player.col + 1})`
-          );
-        }
-      }
-    }
-  }
-
-  if (totalLOS > 0) {
-
-    statusDisplay.textContent =
-      `⚠ ${totalLOS} enemy/player ` +
-      `Line of Sight connection(s) detected!`;
-
-    statusDisplay.className = "danger";
-
-  } else {
-
-    updateSafeStatus();
-
-  }
-
-  previousLOSPairs = currentLOSPairs;
-
-  // One combined alert instead of many popups.
-  // Uncomment to alert the user in a popup
-  // if (newAlerts.length > 0) {
-  //   alert(
-  //     "⚠ NEW LINE OF SIGHT!\n\n" +
-  //     newAlerts.join("\n\n")
-  //   );
-  // }
-
-  updateEnemyVisionOverlay();
-}
-
-
-function updateSafeStatus() {
-
-  statusDisplay.textContent =
-    "✓ No enemy currently has line of sight.";
-
-  statusDisplay.className = "safe";
-
-}
-
-
-function clearGrid() {
-
-  if (window.pendingClickTimer) {
-    clearTimeout(window.pendingClickTimer);
-    window.pendingClickTimer = null;
-  }
-
-  initializeBoard();
-
-  previousLOSPairs.clear();
-
-  renderBoard();
-
-  updateSafeStatus();
-
-}
-
-
-function canEnemySeeCell(
-  enemyRow,
-  enemyCol,
+function traceGridRay(
+  startRow,
+  startCol,
   targetRow,
   targetCol
 ) {
-  if (
-    enemyRow === targetRow &&
-    enemyCol === targetCol
-  ) {
-    return true;
-  }
 
+  const result = {
+    blocked: false,
+    halfCoverCount: 0,
+    halfCoverCells: new Set()
+  };
+
+  // SAME SQUARE
   if (
-    isEnemySurrounded(
-      enemyRow,
-      enemyCol
-    )
+    startRow === targetRow &&
+    startCol === targetCol
   ) {
-    return false;
+    return result;
   }
 
   const startX =
-    enemyCol + 0.5;
+    startCol + 0.5;
 
   const startY =
-    enemyRow + 0.5;
+    startRow + 0.5;
 
   const endX =
     targetCol + 0.5;
@@ -1843,20 +1727,17 @@ function canEnemySeeCell(
   const endY =
     targetRow + 0.5;
 
-
   const dx =
     endX - startX;
 
   const dy =
     endY - startY;
 
-
   let currentRow =
-    enemyRow;
+    startRow;
 
   let currentCol =
-    enemyCol;
-
+    startCol;
 
   const stepX =
     Math.sign(dx);
@@ -1869,12 +1750,10 @@ function canEnemySeeCell(
       ? Infinity
       : Math.abs(1 / dx);
 
-
   const tDeltaY =
     dy === 0
       ? Infinity
       : Math.abs(1 / dy);
-
 
   let tMaxX =
     dx === 0
@@ -1889,125 +1768,739 @@ function canEnemySeeCell(
   const EPSILON =
     1e-10;
 
+
+  function recordHalfCover(
+    row,
+    col
+  ) {
+    // Do not count starting square.
+    if (
+      row === startRow &&
+      col === startCol
+    ) {
+      return;
+    }
+
+    // Do not count target square.
+    if (
+      row === targetRow &&
+      col === targetCol
+    ) {
+      return;
+    }
+
+    if (
+      isHalfCover(
+        row,
+        col
+      )
+    ) {
+      result.halfCoverCells.add(
+        `${row},${col}`
+      );
+    }
+  }
+
+  //  TRACE THROUGH GRID
   while (
     currentRow !== targetRow ||
     currentCol !== targetCol
   ) {
+    // CROSS VERTICAL EDGE
     if (
       tMaxX <
       tMaxY - EPSILON
     ) {
-      currentCol += stepX;
-      tMaxX += tDeltaX;
+      currentCol +=
+        stepX;
+
+      tMaxX +=
+        tDeltaX;
+
+      // If we reached the target, stop.
+      if (
+        currentRow === targetRow &&
+        currentCol === targetCol
+      ) {
+        break;
+      }
+
+      // Full Cover blocks immediately.
+      if (
+        isBarrier(
+          currentRow,
+          currentCol
+        )
+      ) {
+        result.blocked =
+          true;
+        break;
+      }
+      recordHalfCover(
+        currentRow,
+        currentCol
+      );
     } else if (
+      // CROSS HORIZONTAL EDGE
       tMaxY <
       tMaxX - EPSILON
     ) {
-      currentRow += stepY;
-      tMaxY += tDeltaY;
-    } else {
 
-      const nextRow =
-        currentRow + stepY;
+      currentRow +=
+        stepY;
 
-      const nextCol =
-        currentCol + stepX;
 
-      const side1Barrier =
-        isBarrier(
-          currentRow,
-          nextCol
-        );
-
-      const side2Barrier =
-        isBarrier(
-          nextRow,
-          currentCol
-        );
+      tMaxY +=
+        tDeltaY;
 
 
       if (
-        side1Barrier &&
-        side2Barrier
+        currentRow === targetRow &&
+        currentCol === targetCol
       ) {
-        return false;
+        break;
       }
 
 
+      if (
+        isBarrier(
+          currentRow,
+          currentCol
+        )
+      ) {
+        result.blocked =
+          true;
+        break;
+      }
+      recordHalfCover(
+        currentRow,
+        currentCol
+      );
+    } else {
+      // EXACT GRID CORNER
+      const nextRow =
+        currentRow +
+        stepY;
+
+      const nextCol =
+        currentCol +
+        stepX;
+
+      // These are the two squares touching the corner the ray passes through.
+      const horizontalRow =
+        currentRow;
+
+      const horizontalCol =
+        nextCol;
+
+      const verticalRow =
+        nextRow;
+
+      const verticalCol =
+        currentCol;
+
+      const horizontalBarrier =
+        isBarrier(
+          horizontalRow,
+          horizontalCol
+        );
+
+      const verticalBarrier =
+        isBarrier(
+          verticalRow,
+          verticalCol
+        );
+
+
+      // Two Full Cover squares touching at the corner block the diagonal gap.
+      if (
+        horizontalBarrier &&
+        verticalBarrier
+      ) {
+        result.blocked =
+          true;
+        break;
+      }
+
+      // Half Cover touching the exact corner counts as cover. Using a Set prevents duplicates.
+      recordHalfCover(
+        horizontalRow,
+        horizontalCol
+      );
+
+
+      recordHalfCover(
+        verticalRow,
+        verticalCol
+      );
+
+      // Move diagonally into next square.
       currentRow =
         nextRow;
 
       currentCol =
         nextCol;
 
-      tMaxX += tDeltaX;
-      tMaxY += tDeltaY;
 
+      tMaxX +=
+        tDeltaX;
+
+      tMaxY +=
+        tDeltaY;
+
+
+      if (
+        currentRow === targetRow &&
+        currentCol === targetCol
+      ) {
+        break;
+      }
+
+      // Full Cover in the diagonal square also blocks vision.
+      if (
+        isBarrier(
+          currentRow,
+          currentCol
+        )
+      ) {
+        result.blocked =
+          true;
+        break;
+      }
+      recordHalfCover(
+        currentRow,
+        currentCol
+      );
     }
 
+    // SAFETY
     if (
       currentRow < 0 ||
       currentRow >= ROWS ||
       currentCol < 0 ||
       currentCol >= COLS
     ) {
-      return false;
-    }
-
-    if (
-      currentRow === targetRow &&
-      currentCol === targetCol
-    ) {
-      return true;
-    }
-
-    if (
-      isBarrier(
-        currentRow,
-        currentCol
-      )
-    ) {
-      return false;
+      result.blocked =
+        true;
+      break;
     }
   }
+
+  result.halfCoverCount =
+    result.halfCoverCells.size;
+
+  return result;
+}
+
+
+function getCoverBetween(
+  enemyRow,
+  enemyCol,
+  targetRow,
+  targetCol
+) {
+  const ray =
+    traceGridRay(
+      enemyRow,
+      enemyCol,
+      targetRow,
+      targetCol
+    );
+
+  // Full Cover barrier.
+  if (ray.blocked) {
+    return {
+      type: "full",
+      halfCoverCount:
+        ray.halfCoverCount
+    };
+  }
+
+  // TWO OR MORE HALF COVER PIECES = FULL COVER
+  if (
+    ray.halfCoverCount >= 2
+  ) {
+    return {
+      type: "full",
+      halfCoverCount:
+        ray.halfCoverCount
+    };
+
+  }
+
+  // ONLY HALF COVER
+  if (
+    ray.halfCoverCount === 1
+  ) {
+    return {
+      type: "half",
+      halfCoverCount: 1
+    };
+
+  }
+
+  // NO COVER
+  return {
+    type: "none",
+    halfCoverCount: 0
+  };
+
+}
+
+
+function hasLineOfSight(
+  enemyRow,
+  enemyCol,
+  playerRow,
+  playerCol
+) {
+  // Surrounded enemy cannot see outward.
+  if (
+    isEnemySurrounded(
+      enemyRow,
+      enemyCol
+    )
+  ) {
+    return false;
+  }
+
+  const ray =
+    traceGridRay(
+      enemyRow,
+      enemyCol,
+      playerRow,
+      playerCol
+    );
+
+  // Full Cover barrier.
+  if (ray.blocked) {
+    return false;
+  }
+
+  // Two Half Covers count as Full Cover.
+  if (
+    ray.halfCoverCount >= 2
+  ) {
+    return false;
+  }
+
+  // Zero or one Half Cover = visible.
   return true;
 }
 
 
-function updateEnemyVisionOverlay() {
+function checkAllLineOfSight() {
+  const enemies = [];
+  const players = [];
+
+  // FIND PIECES
+  for (
+    let row = 0;
+    row < ROWS;
+    row++
+  ) {
+    for (
+      let col = 0;
+      col < COLS;
+      col++
+    ) {
+      const piece =
+        board[row][col];
+
+      if (!piece) {
+        continue;
+      }
+
+      const entry = {
+        ...piece,
+        row,
+        col
+      };
+
+      if (
+        piece.type === "enemy"
+      ) {
+        enemies.push(entry);
+      }
+
+      if (
+        piece.type === "player"
+      ) {
+        players.push(entry);
+      }
+    }
+  }
+
+  // REMOVE OLD HIGHLIGHTS
+  document
+    .querySelectorAll(
+      ".has-los, .has-half-cover"
+    )
+    .forEach(cell => {
+      cell.classList.remove(
+        "has-los",
+        "has-half-cover"
+      );
+    });
+
+  const currentLOSPairs =
+    new Set();
+
+  const newAlerts = [];
+
+  let totalLOS = 0;
+
+  // CHECK ENEMIES
+  for (const enemy of enemies) {
+
+
+    if (
+      isEnemySurrounded(
+        enemy.row,
+        enemy.col
+      )
+    ) {
+      continue;
+    }
+
+
+    /* ===================================
+       CHECK PLAYERS
+       =================================== */
+
+    for (
+      const player of players
+    ) {
+
+
+      const canSeePlayer =
+        hasLineOfSight(
+          enemy.row,
+          enemy.col,
+          player.row,
+          player.col
+        );
+
+
+      if (!canSeePlayer) {
+        continue;
+      }
+
+
+      /* =================================
+         COVER
+         ================================= */
+
+      const cover =
+        getCoverBetween(
+          enemy.row,
+          enemy.col,
+          player.row,
+          player.col
+        );
+
+
+      const playerHasHalfCover =
+        cover.type === "half";
+
+
+      /* =================================
+         LOS PAIR
+         ================================= */
+
+      const pairID =
+        `${enemy.id}-${player.id}`;
+
+
+      currentLOSPairs.add(
+        pairID
+      );
+
+
+      totalLOS++;
+
+
+      /* =================================
+         CELLS
+         ================================= */
+
+      const enemyCell =
+        grid.querySelector(
+          `.cell[data-row="${enemy.row}"]` +
+          `[data-col="${enemy.col}"]`
+        );
+
+
+      const playerCell =
+        grid.querySelector(
+          `.cell[data-row="${player.row}"]` +
+          `[data-col="${player.col}"]`
+        );
+
+
+      /* =================================
+         HIGHLIGHT ENEMY
+         ================================= */
+
+      if (enemyCell) {
+
+        enemyCell.classList.add(
+          "has-los"
+        );
+
+      }
+
+
+      /* =================================
+         HIGHLIGHT PLAYER
+         ================================= */
+
+      if (playerCell) {
+
+        playerCell.classList.add(
+          "has-los"
+        );
+
+
+        if (
+          playerHasHalfCover
+        ) {
+
+          playerCell.classList.add(
+            "has-half-cover"
+          );
+
+        }
+
+      }
+
+
+      /* =================================
+         ALERT
+         ================================= */
+
+      if (
+        !previousLOSPairs.has(
+          pairID
+        )
+      ) {
+
+        let message =
+          `${enemy.name} ` +
+          `(Row ${enemy.row + 1}, ` +
+          `Column ${enemy.col + 1}) ` +
+          `can see ${player.name} ` +
+          `(Row ${player.row + 1}, ` +
+          `Column ${player.col + 1})`;
+
+
+        if (
+          playerHasHalfCover
+        ) {
+
+          message +=
+            "\n🛡️ HALF COVER: " +
+            "+2 AC and " +
+            "+2 Dexterity saves";
+
+        }
+
+
+        newAlerts.push(
+          message
+        );
+
+      }
+
+    }
+
+  }
+  // STATUS
+  if (
+    totalLOS > 0
+  ) {
+    statusDisplay.textContent =
+      `⚠ ${totalLOS} enemy/player ` +
+      `line-of-sight connection(s) detected!`;
+
+    statusDisplay.className =
+      "danger";
+  }
+  else {
+    updateSafeStatus();
+  }
+
+  // REMEMBER LOS
+  previousLOSPairs =
+    currentLOSPairs;
+  // VISION DISPAY
+  updateEnemyVisionOverlay();
+  // SAVE
+  saveBattleGrid();
+
+  // ALERT USER IN POPUP. UNCOMMENT TO ADD IN FUNCTIONALITY
+  // if (
+  //   newAlerts.length > 0
+  // ) {
+  //   alert(
+  //     "⚠ NEW LINE OF SIGHT!\n\n" +
+  //     newAlerts.join(
+  //       "\n\n"
+  //     )
+  //   );
+  // }
+
+  // UPDATE STATUS DISPLAY
+  if (totalLOS > 0) {
+    statusDisplay.textContent =
+      `⚠ ${totalLOS} enemy/player ` +
+      `line-of-sight connection(s) detected!`;
+
+    statusDisplay.className =
+      "danger";
+  } else {
+    updateSafeStatus();
+  }
+
+  // REMEMBER CURRENT LOS
+  // On the next LOS check, these become the
+  // "previous" relationships.
+  // This prevents repeated browser alerts
+  // every time the board redraws.
+  previousLOSPairs =
+    currentLOSPairs;
+
+   // UPDATE ENEMY VISION OVERLAY
+   // This respects enemyVisionEnabled.
+   // If vision is OFF, the overlay remains
+   // hidden.
+  updateEnemyVisionOverlay();
+
+  // SAVE CURRENT BOARD
+  // Saves positions, names, grid dimensions,
+  // cover pieces, and vision settings.
+  saveBattleGrid();
+
+  // SHOW NEW LOS ALERTS. UNCOMMENT TO ACTIVATE POPUP ALERT
+  // if (newAlerts.length > 0) {
+  //
+  //   alert(
+  //     "⚠ NEW LINE OF SIGHT!\n\n" +
+  //     newAlerts.join(
+  //       "\n\n"
+  //     )
+  //   );
+  //
+  // }
+
+}
+
+
+function updateSafeStatus() {
+  statusDisplay.textContent =
+    "✓ No enemy currently has line of sight.";
+  statusDisplay.className = "safe";
+}
+
+
+function clearGrid() {
+  if (window.pendingClickTimer) {
+    clearTimeout(window.pendingClickTimer);
+    window.pendingClickTimer = null;
+  }
+
+  // Clear and reset everything to base default
+  resetDrag();
+  initializeBoard();
+  previousLOSPairs.clear();
+  renderBoard();
+  updateSafeStatus();
+  updateEnemyVisionOverlay();
+  // Save the now-empty grid.
+  saveBattleGrid();
+}
+
+
+function canEnemySeeCell(
+  enemyRow,
+  enemyCol,
+  targetRow,
+  targetCol
+) {
+  // Enemy sees its own square.
+  if (
+    enemyRow === targetRow &&
+    enemyCol === targetCol
+  ) {
+    return true;
+  }
+
+  // Completely surrounded by Full Cover.
+  if (
+    isEnemySurrounded(
+      enemyRow,
+      enemyCol
+    )
+  ) {
+    return false;
+  }
+
+  const ray =
+    traceGridRay(
+      enemyRow,
+      enemyCol,
+      targetRow,
+      targetCol
+    );
+  return !ray.blocked;
+}
+
+
+function clearEnemyVisionOverlay() {
   document
     .querySelectorAll(
       ".enemy-visible"
     )
     .forEach(cell => {
-
       cell.classList.remove(
         "enemy-visible"
       );
-
     });
+}
 
+
+function updateEnemyVisionOverlay() {
+  // CLEAR OVERLAY TO REFRESH
+  clearEnemyVisionOverlay();
+
+  if (
+    !enemyVisionEnabled
+  ) {
+    return;
+  }
+
+  // CHECK EVERY ENEMY
   for (
     let enemyRow = 0;
     enemyRow < ROWS;
     enemyRow++
   ) {
-
     for (
       let enemyCol = 0;
       enemyCol < COLS;
       enemyCol++
     ) {
-      const piece =
+      const enemy =
         board[enemyRow][enemyCol];
 
       if (
-        !piece ||
-        piece.type !== "enemy"
+        !enemy ||
+        enemy.type !== "enemy"
       ) {
         continue;
       }
 
+      // CHECK EVERY CELL
       for (
         let targetRow = 0;
         targetRow < ROWS;
@@ -2018,25 +2511,69 @@ function updateEnemyVisionOverlay() {
           targetCol < COLS;
           targetCol++
         ) {
+          // Enemy's own cell.
           if (
-            canEnemySeeCell(
-              enemyRow,
-              enemyCol,
-              targetRow,
-              targetCol
-            )
+            enemyRow === targetRow &&
+            enemyCol === targetCol
           ) {
-            const cell =
+
+            const enemyCell =
               grid.querySelector(
                 `.cell[data-row="${targetRow}"]` +
                 `[data-col="${targetCol}"]`
               );
 
-            if (cell) {
-              cell.classList.add(
+            if (enemyCell) {
+              enemyCell.classList.add(
                 "enemy-visible"
               );
             }
+            continue;
+          }
+
+          // Surrounded enemy cannot project vision outward.
+          if (
+            isEnemySurrounded(
+              enemyRow,
+              enemyCol
+            )
+          ) {
+            continue;
+          }
+
+          const ray =
+            traceGridRay(
+              enemyRow,
+              enemyCol,
+              targetRow,
+              targetCol
+            );
+
+          // Full Cover blocks vision.
+          if (
+            ray.blocked
+          ) {
+            continue;
+          }
+
+          // Two Half Covers block vision.
+          if (
+            ray.halfCoverCount >= 2
+          ) {
+            continue;
+          }
+
+          const cell =
+            grid.querySelector(
+              `.cell[data-row="${targetRow}"]` +
+              `[data-col="${targetCol}"]`
+            );
+
+
+          if (cell) {
+            cell.classList.add(
+              "enemy-visible"
+            );
           }
         }
       }
@@ -2045,10 +2582,187 @@ function updateEnemyVisionOverlay() {
 }
 
 
+function saveBattleGrid() {
+  const saveData = {
+    rows: ROWS,
+    cols: COLS,
+    board: board,
+    nextCharacterId: nextCharacterId,
+    enemyVisionEnabled: enemyVisionEnabled
+  };
+
+  try {
+    localStorage.setItem(
+      SAVE_KEY,
+      JSON.stringify(saveData)
+    );
+  } catch (error) {
+    console.error(
+      "Unable to save battle grid:",
+      error
+    );
+  }
+}
+
+
+function loadBattleGrid() {
+  try {
+    const savedData =
+      localStorage.getItem(SAVE_KEY);
+
+    if (!savedData) {
+      return false;
+    }
+
+    const data =
+      JSON.parse(savedData);
+
+    // Restore grid dimensions
+    if (
+      Number.isInteger(data.rows) &&
+      Number.isInteger(data.cols)
+    ) {
+      ROWS = data.rows;
+      COLS = data.cols;
+
+      rowsInput.value = ROWS;
+      colsInput.value = COLS;
+    }
+
+    // Restore board
+    if (Array.isArray(data.board)) {
+      board = data.board;
+    } else {
+      initializeBoard();
+    }
+
+    // Restore character IDs
+    if (
+      Number.isInteger(
+        data.nextCharacterId
+      )
+    ) {
+      nextCharacterId =
+        data.nextCharacterId;
+    }
+
+    // Restore vision toggle
+    // NOTE: Not in use
+    if (
+      typeof data.enemyVisionEnabled ===
+      "boolean"
+    ) {
+      enemyVisionEnabled =
+        data.enemyVisionEnabled;
+    }
+    return true;
+  }
+
+  catch (error) {
+    console.error(
+      "Unable to load battle grid:",
+      error
+    );
+    return false;
+  }
+}
+
+
+function toggleCoverMenu(event) {
+  event.stopPropagation();
+
+  const menu =
+    document.getElementById(
+      "coverMenu"
+    );
+
+  menu.classList.toggle(
+    "open"
+  );
+}
+
+
+function selectCoverType(
+  type,
+  event
+) {
+  event.stopPropagation();
+
+  selectedTool = type;
+
+  const coverButton =
+    document.getElementById(
+      "coverButton"
+    );
+
+  // Update button appearance
+  if (type === "barrier") {
+    coverButton.textContent =
+      "🧱 Full Cover ▼";
+
+  } else {
+    coverButton.textContent =
+      "🛡️ Half Cover ▼";
+  }
+
+  // Mark cover as selected
+  document
+    .querySelectorAll(
+      ".tool-row > button, " +
+      ".cover-dropdown > button"
+    )
+    .forEach(button => {
+      button.classList.remove(
+        "selected"
+      );
+    });
+
+  coverButton.classList.add(
+    "selected"
+  );
+
+  // Close dropdown
+  document
+    .getElementById(
+      "coverMenu"
+    )
+    .classList.remove(
+      "open"
+    );
+}
+
+
+document.addEventListener(
+  "click",
+  function() {
+    document
+      .getElementById(
+        "coverMenu"
+      )
+      .classList.remove(
+        "open"
+      );
+  }
+);
+
+
 // INITIALIZE
 initializeBoard();
 createGrid();
 updateEnemyVisionOverlay();
+
+// INITIALIZE APPLICATION
+const saveLoaded =
+  loadBattleGrid();
+
+// No saved board exists yet.
+if (!saveLoaded) {
+  initializeBoard();
+}
+
+createGrid();
+// updateVisionButton();
+checkAllLineOfSight();
 
 </script>
 
