@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stealth Battle Grid</title>
 
-<style>
+<!-- <style>
 * {
   box-sizing: border-box;
 }
@@ -939,7 +939,10 @@ body.dragging-piece .cell:hover {
   z-index: 50;
 }
 
-</style>
+</style> -->
+
+<!-- Linking the external CSS file below -->
+<link rel="stylesheet" href="battlemap-style.css">
 
 </head>
 
@@ -1081,6 +1084,14 @@ body.dragging-piece .cell:hover {
     <div class="legend-item">
       <div
         class="legend-color"
+        style="background:#05050c;"
+      ></div>
+      Darkness
+    </div>
+
+    <div class="legend-item">
+      <div
+        class="legend-color"
         style="background:#2ecc71;"
       ></div>
       Player
@@ -1099,6 +1110,7 @@ body.dragging-piece .cell:hover {
       Has Line of Sight
     </div>
   </div>
+</div>
 </footer>
 <script>
 
@@ -4184,9 +4196,10 @@ createGrid();
 // updateVisionButton();
 checkAllLineOfSight();
 
-printBoard();
-console.log(textBoard);
-console.log(textStr);
+// Debug currently rendered board
+// printBoard();
+// console.log(textBoard);
+// console.log(textStr);
 
 </script>
 
