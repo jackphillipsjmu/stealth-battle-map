@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>D&D Dice Roller</title>
+
+<style>
+:root {
+  --bg: #0f1117;
+  --card: #181b23;
+  --panel: #20242e;
+  --border: #343946;
+  --text: #f5f5f7;
+  --muted: #9ca3af;
+
+  --dice: #7c3aed;
+  --ink: #ffffff;
+
+  --theme: #7c3aed;
+  --theme-soft: color-mix(in srgb, var(--theme), transparent 82%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+  min-height: 100vh;
+
+  background: var(--bg);
+  color: var(--text);
+
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app {
+  width: min(1180px, 100%);
+  margin: auto;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: minmax(380px, 0.9fr) minmax(420px, 1.1fr);
+  gap: 18px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.title {
+  margin-top: 2px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ---------------------------------
+   THEME CONTROL
+---------------------------------- */
+
+.theme-wrap {
+  position: relative;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 7px 10px;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  background: transparent;
+  color: var(--muted);
+
+  font-size: 12px;
+}
+
+.theme-toggle:hover {
+  border-color: var(--theme);
+  color: var(--text);
+}
+
+.theme-dot {
+  width: 13px;
+  height: 13px;
+
+  border-radius: 50%;
+  background: var(--theme);
+
+  box-shadow: 0 0 0 1px rgba(255,255,255,.25);
+}
+
+.theme-popover {
+  position: absolute;
+
+  z-index: 20;
+
+  right: 0;
+  top: calc(100% + 7px);
+
+  width: 190px;
+
+  padding: 12px;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+
+  background: var(--card);
+
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+
+.theme-popover[hidden] {
+  display: none;
+}
+
+.theme-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.theme-color-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  margin-top: 8px;
+}
+
+.theme-color-row input {
+  width: 38px;
+  height: 30px;
+
+  padding: 1px;
+
+  border: 0;
+  background: transparent;
+
+  cursor: pointer;
+}
+
+/* ---------------------------------
+   NORMAL / ADV / DISADV
+---------------------------------- */
+
+.mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  margin-top: 18px;
+}
+
+.mode {
+  padding: 9px 13px;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  background: transparent;
+  color: var(--muted);
+}
+
+.mode:hover {
+  border-color: var(--theme);
+}
+
+.mode.active {
+  border-color: var(--theme);
+  background: var(--theme-soft);
+  color: var(--text);
+}
+
+/* ---------------------------------
+   DICE SELECTOR
+---------------------------------- */
+
+.dice-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+
+  gap: 8px;
+
+  margin-top: 16px;
+}
+
+.die-pick {
+  min-height: 68px;
+
+  border: 1px solid var(--border);
+  border-radius: 12px;
+
+  background: transparent;
+  color: var(--muted);
+
+  font-weight: 700;
+}
+
+.die-pick:hover {
+  border-color: var(--theme);
+}
+
+.die-pick.active {
+  border-color: var(--theme);
+  background: var(--theme-soft);
+  color: var(--text);
+}
+
+/* ---------------------------------
+   FORM
+---------------------------------- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+
+  gap: 13px;
+
+  margin-top: 16px;
+}
+
+label {
+  display: block;
+
+  color: var(--muted);
+
+  font-size: 13px;
+}
+
+.control-input {
+  width: 100%;
+
+  margin-top: 6px;
+  padding: 10px 11px;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  background: transparent;
+  color: var(--text);
+}
+
+select.control-input {
+  background: var(--card);
+}
+
+.control-input:focus {
+  outline: none;
+
+  border-color: var(--theme);
+
+  box-shadow:
+    0 0 0 2px var(--theme-soft);
+}
+
+.color-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  min-height: 42px;
+
+  margin-top: 6px;
+  padding: 4px 8px;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.color-control input {
+  width: 48px;
+  height: 32px;
+
+  border: 0;
+
+  background: transparent;
+
+  cursor: pointer;
+}
+
+/* ---------------------------------
+   ROLL BUTTON
+---------------------------------- */
+
+.roll-main {
+  width: 100%;
+  min-height: 50px;
+
+  margin-top: 16px;
+
+  border: 1px solid var(--theme);
+  border-radius: 12px;
+
+  background: var(--theme-soft);
+  color: var(--text);
+
+  font-weight: 800;
+  font-size: 16px;
+
+  box-shadow:
+    0 7px 20px
+    color-mix(in srgb, var(--theme), transparent 86%);
+}
+
+.roll-main:hover {
+  background:
+    color-mix(in srgb, var(--theme), transparent 72%);
+}
+
+/* ---------------------------------
+   QUICK BUTTONS
+---------------------------------- */
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 8px;
+
+  margin-top: 13px;
+}
+
+.quick {
+  min-height: 44px;
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  background: transparent;
+  color: var(--text);
+
+  font-weight: 700;
+}
+
+.quick:hover {
+  border-color: var(--theme);
+  background: var(--theme-soft);
+}
+
+/* ---------------------------------
+   DICE TRAY
+---------------------------------- */
+
+.tray {
+  position: relative;
+
+  min-height: 330px;
+
+  overflow: hidden;
+
+  border:
+    8px solid
+    color-mix(in srgb, var(--theme), var(--border) 72%);
+
+  border-radius: 24px;
+
+  perspective: 900px;
+
+  background:
+    radial-gradient(
+      ellipse at 50% 40%,
+      color-mix(in srgb, var(--theme), var(--panel) 88%),
+      var(--panel) 70%
+    );
+
+  box-shadow:
+    inset 0 0 28px rgba(0,0,0,.28),
+    0 0 20px
+    color-mix(in srgb, var(--theme), transparent 90%);
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-wrap: wrap;
+
+  gap: 18px;
+
+  padding: 28px;
+
+  transform-style: preserve-3d;
+}
+
+/* ---------------------------------
+   DICE
+---------------------------------- */
+
+.die3d {
+  position: relative;
+
+  width: 92px;
+  height: 92px;
+
+  transform-style: preserve-3d;
+
+  filter:
+    drop-shadow(
+      13px 18px 10px rgba(0,0,0,.35)
+    );
+}
+
+.poly {
+  position: absolute;
+  inset: 0;
+
+  display: grid;
+  place-items: center;
+
+  color: var(--ink);
+
+  font-size: 28px;
+  font-weight: 900;
+
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--dice), white 26%),
+      var(--dice) 44%,
+      color-mix(in srgb, var(--dice), black 28%)
+    );
+
+  border:
+    2px solid
+    color-mix(in srgb, var(--dice), black 35%);
+
+  text-shadow:
+    0 2px 2px rgba(0,0,0,.4);
+
+  box-shadow:
+    inset 8px 7px 12px rgba(255,255,255,.16),
+    inset -10px -10px 16px rgba(0,0,0,.25);
+}
+
+/* Dice shapes */
+
+.d4 .poly {
+  clip-path:
+    polygon(
+      50% 2%,
+      98% 94%,
+      2% 94%
+    );
+}
+
+.d6 .poly {
+  border-radius: 15px;
+}
+
+.d8 .poly {
+  clip-path:
+    polygon(
+      50% 0,
+      100% 50%,
+      50% 100%,
+      0 50%
+    );
+}
+
+.d10 .poly {
+  clip-path:
+    polygon(
+      50% 0,
+      94% 31%,
+      77% 100%,
+      23% 100%,
+      6% 31%
+    );
+}
+
+.d12 .poly {
+  clip-path:
+    polygon(
+      50% 0,
+      88% 18%,
+      100% 57%,
+      74% 100%,
+      26% 100%,
+      0 57%,
+      12% 18%
+    );
+}
+
+.d20 .poly {
+  clip-path:
+    polygon(
+      50% 0,
+      94% 24%,
+      94% 76%,
+      50% 100%,
+      6% 76%,
+      6% 24%
+    );
+}
+
+.d100 .poly {
+  border-radius: 50%;
+}
+
+/* ---------------------------------
+   ROLL ANIMATION
+---------------------------------- */
+
+.die3d.rolling {
+  animation:
+    tumble .95s
+    cubic-bezier(.15,.65,.25,1);
+}
+
+@keyframes tumble {
+
+  0% {
+    transform:
+      translate3d(-60px,-70px,100px)
+      rotateX(0)
+      rotateY(0)
+      rotateZ(0)
+      scale(.7);
+  }
+
+  18% {
+    transform:
+      translate3d(38px,-38px,75px)
+      rotateX(160deg)
+      rotateY(120deg)
+      rotateZ(80deg)
+      scale(1.08);
+  }
+
+  40% {
+    transform:
+      translate3d(-25px,10px,38px)
+      rotateX(340deg)
+      rotateY(285deg)
+      rotateZ(210deg)
+      scale(.92);
+  }
+
+  61% {
+    transform:
+      translate3d(20px,-9px,18px)
+      rotateX(500deg)
+      rotateY(440deg)
+      rotateZ(350deg)
+      scale(1.04);
+  }
+
+  78% {
+    transform:
+      translate3d(-8px,3px,8px)
+      rotateX(610deg)
+      rotateY(550deg)
+      rotateZ(425deg);
+  }
+
+  100% {
+    transform:
+      translate3d(0,0,0)
+      rotateX(720deg)
+      rotateY(720deg)
+      rotateZ(540deg);
+  }
+}
+
+.die3d.settled {
+  transform:
+    rotateX(10deg)
+    rotateY(-13deg)
+    rotateZ(3deg);
+}
+
+/* ---------------------------------
+   RESULTS
+---------------------------------- */
+
+.result {
+  margin-top: 16px;
+
+  text-align: center;
+}
+
+#special {
+  min-height: 24px;
+
+  font-weight: 800;
+
+  color: var(--theme);
+}
+
+#total {
+  font-size: 52px;
+  font-weight: 900;
+}
+
+#detail {
+  margin-top: 3px;
+
+  color: var(--muted);
+
+  font-size: 14px;
+}
+
+/* ---------------------------------
+   HISTORY
+---------------------------------- */
+
+.history-card {
+  margin-top: 18px;
+}
+
+.history-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+}
+
+.history {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 8px;
+
+  margin-top: 13px;
+}
+
+.history-item {
+  display: flex;
+
+  justify-content: space-between;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 10px 12px;
+
+  border-radius: 9px;
+
+  background: var(--panel);
+}
+
+.history-label {
+  color: var(--muted);
+
+  font-size: 13px;
+}
+
+.history-value {
+  font-weight: 800;
+}
+
+/* ---------------------------------
+   RESPONSIVE
+---------------------------------- */
+
+@media (max-width: 850px) {
+
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dice-grid {
+    grid-template-columns:
+      repeat(4, 1fr);
+  }
+
+}
+
+@media (max-width: 520px) {
+
+  body {
+    padding: 12px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .history {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .die3d.rolling {
+    animation: none;
+  }
+
+}
+</style>
+</head>
+
+<body>
+
+<div
+  id="dnd-dice-roller"
+  class="app"
+>
+
+  <div class="main-grid">
+
+    <!-- =========================
+         CONTROLS
+    ========================== -->
+
+    <section class="card">
+
+      <div class="header">
+
+        <div>
+
+          <div class="eyebrow">
+            TTRPG Dice
+          </div>
+
+          <div class="title">
+            Choose Your Roll
+          </div>
+
+        </div>
+
+        <!-- Theme button -->
+
+        <div class="theme-wrap">
+
+          <button
+            id="themeToggle"
+            class="theme-toggle"
+            type="button"
+            aria-expanded="false"
+          >
+            <span class="theme-dot"></span>
+            Theme
+          </button>
+
+          <div
+            id="themePopover"
+            class="theme-popover"
+            hidden
+          >
+
+            <div class="theme-label">
+              Interface color
+            </div>
+
+            <div class="theme-color-row">
+
+              <input
+                id="themeColor"
+                type="color"
+                value="#7c3aed"
+              >
+
+              <span id="themeHex">
+                #7C3AED
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Roll mode -->
+
+      <div class="mode-row">
+
+        <button
+          type="button"
+          class="mode"
+          data-mode="normal"
+        >
+          Normal
+        </button>
+
+        <button
+          type="button"
+          class="mode"
+          data-mode="advantage"
+        >
+          Advantage
+        </button>
+
+        <button
+          type="button"
+          class="mode"
+          data-mode="disadvantage"
+        >
+          Disadvantage
+        </button>
+
+      </div>
+
+      <!-- Dice -->
+
+      <div class="dice-grid">
+
+        <button class="die-pick" data-sides="4">
+          d4
+        </button>
+
+        <button class="die-pick" data-sides="6">
+          d6
+        </button>
+
+        <button class="die-pick" data-sides="8">
+          d8
+        </button>
+
+        <button class="die-pick" data-sides="10">
+          d10
+        </button>
+
+        <button class="die-pick" data-sides="12">
+          d12
+        </button>
+
+        <button class="die-pick" data-sides="20">
+          d20
+        </button>
+
+        <button class="die-pick" data-sides="100">
+          d100
+        </button>
+
+      </div>
+
+      <!-- Options -->
+
+      <div class="form-grid">
+
+        <label>
+
+          Dice Count
+
+          <input
+            id="count"
+            class="control-input"
+            type="number"
+            min="1"
+            max="20"
+            value="1"
+          >
+
+        </label>
+
+        <label>
+
+          Modifier
+
+          <input
+            id="mod"
+            class="control-input"
+            type="number"
+            min="-99"
+            max="99"
+            value="0"
+          >
+
+        </label>
+
+        <label>
+
+          Roll Type
+
+          <select
+            id="type"
+            class="control-input"
+          >
+
+            <option>Attack Roll</option>
+
+            <option>Initiative</option>
+
+            <option>Ability Check</option>
+
+            <option>Saving Throw</option>
+
+            <option>Damage</option>
+
+            <option>Healing</option>
+
+            <option>Custom Roll</option>
+
+          </select>
+
+        </label>
+
+        <label>
+
+          Dice Color
+
+          <div class="color-control">
+
+            <input
+              id="color"
+              type="color"
+              value="#7c3aed"
+            >
+
+            <span id="hex">
+              #7C3AED
+            </span>
+
+          </div>
+
+        </label>
+
+      </div>
+
+      <!-- Main roll -->
+
+      <button
+        id="roll"
+        class="roll-main"
+        type="button"
+      >
+        Roll d20
+      </button>
+
+      <!-- Quick rolls -->
+
+      <div class="quick-grid">
+
+        <button
+          class="quick"
+          type="button"
+          data-type="Attack Roll"
+        >
+          Attack
+        </button>
+
+        <button
+          class="quick"
+          type="button"
+          data-type="Damage"
+        >
+          Damage
+        </button>
+
+        <button
+          class="quick"
+          type="button"
+          data-type="Saving Throw"
+        >
+          Save
+        </button>
+
+      </div>
+
+    </section>
+
+    <!-- =========================
+         DICE TRAY
+    ========================== -->
+
+    <section>
+
+      <div class="tray">
+
+        <div
+          id="stage"
+          class="stage"
+        >
+
+          <div class="die3d d20 settled">
+
+            <div class="poly">
+              <span>20</span>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div
+        class="result"
+        aria-live="polite"
+      >
+
+        <div id="special"></div>
+
+        <div id="total">
+          20
+        </div>
+
+        <div id="detail">
+          Ready to roll.
+        </div>
+
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- =========================
+       HISTORY
+  ========================== -->
+
+  <section class="card history-card">
+
+    <div class="history-header">
+
+      <strong>
+        Roll History
+      </strong>
+
+      <button
+        id="clear"
+        class="quick"
+        type="button"
+      >
+        Clear
+      </button>
+
+    </div>
+
+    <div
+      id="history"
+      class="history"
+    ></div>
+
+  </section>
+
+</div>
+
+<script>
+(() => {
+
+  /* =====================================
+     STORAGE KEYS
+  ===================================== */
+
+  const SETTINGS_KEY =
+    "dndDiceRollerSettingsV1";
+
+  const HISTORY_KEY =
+    "dndDiceRollerHistoryV1";
+
+
+  /* =====================================
+     STATE
+  ===================================== */
+
+  let sides = 20;
+
+  let mode = "normal";
+
+  let hist = [];
+
+
+  /* =====================================
+     ELEMENTS
+  ===================================== */
+
+  const root =
+    document.getElementById(
+      "dnd-dice-roller"
+    );
+
+  const stage =
+    document.getElementById("stage");
+
+  const count =
+    document.getElementById("count");
+
+  const modifier =
+    document.getElementById("mod");
+
+  const type =
+    document.getElementById("type");
+
+  const diceColor =
+    document.getElementById("color");
+
+  const themeColor =
+    document.getElementById("themeColor");
+
+  const themeToggle =
+    document.getElementById("themeToggle");
+
+  const themePopover =
+    document.getElementById("themePopover");
+
+  const rollButton =
+    document.getElementById("roll");
+
+  const total =
+    document.getElementById("total");
+
+  const detail =
+    document.getElementById("detail");
+
+  const special =
+    document.getElementById("special");
+
+  const history =
+    document.getElementById("history");
+
+  const clearButton =
+    document.getElementById("clear");
+
+
+  /* =====================================
+     HELPERS
+  ===================================== */
+
+  function randomDie(max) {
+
+    return (
+      Math.floor(
+        Math.random() * max
+      ) + 1
+    );
+
+  }
+
+
+  function clamp(
+    value,
+    min,
+    max,
+    fallback
+  ) {
+
+    value =
+      parseInt(value, 10);
+
+    if (!Number.isFinite(value)) {
+      return fallback;
+    }
+
+    return Math.max(
+      min,
+      Math.min(max, value)
+    );
+
+  }
+
+
+  function textColor(hex) {
+
+    const r =
+      parseInt(
+        hex.slice(1, 3),
+        16
+      );
+
+    const g =
+      parseInt(
+        hex.slice(3, 5),
+        16
+      );
+
+    const b =
+      parseInt(
+        hex.slice(5, 7),
+        16
+      );
+
+    const brightness =
+      0.299 * r +
+      0.587 * g +
+      0.114 * b;
+
+    return brightness > 145
+      ? "#111111"
+      : "#ffffff";
+
+  }
+
+
+  /* =====================================
+     SAFE LOCAL STORAGE
+  ===================================== */
+
+  function storageGet(key) {
+
+    try {
+
+      return localStorage.getItem(key);
+
+    } catch {
+
+      return null;
+
+    }
+
+  }
+
+
+  function storageSet(
+    key,
+    value
+  ) {
+
+    try {
+
+      localStorage.setItem(
+        key,
+        value
+      );
+
+    } catch {
+      // Storage unavailable.
+    }
+
+  }
+
+
+  function storageRemove(key) {
+
+    try {
+
+      localStorage.removeItem(key);
+
+    } catch {
+      // Storage unavailable.
+    }
+
+  }
+
+
+  /* =====================================
+     SAVE SETTINGS
+  ===================================== */
+
+  function saveSettings() {
+
+    const settings = {
+
+      sides,
+
+      mode,
+
+      count:
+        count.value,
+
+      modifier:
+        modifier.value,
+
+      type:
+        type.value,
+
+      diceColor:
+        diceColor.value,
+
+      themeColor:
+        themeColor.value
+
+    };
+
+    storageSet(
+      SETTINGS_KEY,
+      JSON.stringify(settings)
+    );
+
+  }
+
+
+  function saveHistory() {
+
+    storageSet(
+      HISTORY_KEY,
+      JSON.stringify(hist)
+    );
+
+  }
+
+
+  /* =====================================
+     DICE COLOR
+  ===================================== */
+
+  function setDiceColor(
+    save = true
+  ) {
+
+    root.style.setProperty(
+      "--dice",
+      diceColor.value
+    );
+
+    root.style.setProperty(
+      "--ink",
+      textColor(
+        diceColor.value
+      )
+    );
+
+    document.getElementById(
+      "hex"
+    ).textContent =
+      diceColor.value.toUpperCase();
+
+    if (save) {
+      saveSettings();
+    }
+
+  }
+
+
+  /* =====================================
+     THEME COLOR
+  ===================================== */
+
+  function setThemeColor(
+    save = true
+  ) {
+
+    root.style.setProperty(
+      "--theme",
+      themeColor.value
+    );
+
+    document.getElementById(
+      "themeHex"
+    ).textContent =
+      themeColor.value.toUpperCase();
+
+    if (save) {
+      saveSettings();
+    }
+
+  }
+
+
+  /* =====================================
+     SELECT DIE
+  ===================================== */
+
+  function chooseDie(
+    newSides,
+    save = true
+  ) {
+
+    sides = newSides;
+
+    document
+      .querySelectorAll(".die-pick")
+      .forEach(button => {
+
+        button.classList.toggle(
+          "active",
+          Number(
+            button.dataset.sides
+          ) === sides
+        );
+
+      });
+
+    rollButton.textContent =
+      `Roll d${sides}`;
+
+    if (save) {
+      saveSettings();
+    }
+
+  }
+
+
+  /* =====================================
+     ADVANTAGE / DISADVANTAGE
+  ===================================== */
+
+  function setMode(
+    newMode,
+    save = true
+  ) {
+
+    mode = newMode;
+
+    document
+      .querySelectorAll(".mode")
+      .forEach(button => {
+
+        button.classList.toggle(
+          "active",
+          button.dataset.mode === mode
+        );
+
+      });
+
+    if (save) {
+      saveSettings();
+    }
+
+  }
+
+
+  /* =====================================
+     CREATE VISUAL DIE
+  ===================================== */
+
+  function makeDie(
+    value,
+    dieSides
+  ) {
+
+    const die =
+      document.createElement("div");
+
+    die.className =
+      `die3d d${dieSides} rolling`;
+
+
+    const polygon =
+      document.createElement("div");
+
+    polygon.className =
+      "poly";
+
+
+    const number =
+      document.createElement("span");
+
+    number.textContent =
+      value;
+
+
+    polygon.appendChild(
+      number
+    );
+
+    die.appendChild(
+      polygon
+    );
+
+
+    die.addEventListener(
+      "animationend",
+      () => {
+
+        die.classList.remove(
+          "rolling"
+        );
+
+        die.classList.add(
+          "settled"
+        );
+
+      },
+      {
+        once: true
+      }
+    );
+
+
+    return die;
+
+  }
+
+
+  /* =====================================
+     HISTORY
+  ===================================== */
+
+  function renderHistory() {
+
+    history.innerHTML = "";
+
+
+    if (!hist.length) {
+
+      const empty =
+        document.createElement(
+          "div"
+        );
+
+      empty.className =
+        "history-label";
+
+      empty.textContent =
+        "Your rolls will appear here.";
+
+      history.appendChild(
+        empty
+      );
+
+      return;
+
+    }
+
+
+    hist.forEach(item => {
+
+      const row =
+        document.createElement(
+          "div"
+        );
+
+      row.className =
+        "history-item";
+
+
+      const label =
+        document.createElement(
+          "span"
+        );
+
+      label.className =
+        "history-label";
+
+      label.textContent =
+        item.label;
+
+
+      const value =
+        document.createElement(
+          "span"
+        );
+
+      value.className =
+        "history-value";
+
+      value.textContent =
+        item.value;
+
+
+      row.append(
+        label,
+        value
+      );
+
+      history.appendChild(
+        row
+      );
+
+    });
+
+  }
+
+
+  function addHistory(
+    label,
+    value
+  ) {
+
+    hist.unshift({
+      label,
+      value
+    });
+
+
+    /*
+      Keep the most recent
+      8 rolls.
+
+      Change 8 if you want
+      more history.
+    */
+
+    hist =
+      hist.slice(0, 8);
+
+
+    renderHistory();
+
+    saveHistory();
+
+  }
+
+
+  /* =====================================
+     ROLL
+  ===================================== */
+
+  function performRoll() {
+
+    const diceCount =
+      clamp(
+        count.value,
+        1,
+        20,
+        1
+      );
+
+
+    const mod =
+      clamp(
+        modifier.value,
+        -99,
+        99,
+        0
+      );
+
+
+    count.value =
+      diceCount;
+
+    modifier.value =
+      mod;
+
+
+    let rolls = [];
+
+    let keptRoll = null;
+
+
+    /*
+      D&D advantage/disadvantage
+      applies to a single d20 roll.
+    */
+
+    if (
+      sides === 20 &&
+      diceCount === 1 &&
+      mode !== "normal"
+    ) {
+
+      const first =
+        randomDie(20);
+
+      const second =
+        randomDie(20);
+
+
+      rolls = [
+        first,
+        second
+      ];
+
+
+      if (
+        mode === "advantage"
+      ) {
+
+        keptRoll =
+          Math.max(
+            first,
+            second
+          );
+
+      } else {
+
+        keptRoll =
+          Math.min(
+            first,
+            second
+          );
+
+      }
+
+    } else {
+
+      for (
+        let i = 0;
+        i < diceCount;
+        i++
+      ) {
+
+        rolls.push(
+          randomDie(sides)
+        );
+
+      }
+
+    }
+
+
+    /* -----------------------------
+       DISPLAY DICE
+    ------------------------------ */
+
+    stage.innerHTML = "";
+
+
+    /*
+      Show up to 10 visual dice
+      to avoid overcrowding.
+    */
+
+    rolls
+      .slice(0, 10)
+      .forEach(value => {
+
+        stage.appendChild(
+          makeDie(
+            value,
+            sides
+          )
+        );
+
+      });
+
+
+    /* -----------------------------
+       CALCULATE RESULT
+    ------------------------------ */
+
+    const baseResult =
+      keptRoll !== null
+
+        ? keptRoll
+
+        : rolls.reduce(
+            (sum, value) =>
+              sum + value,
+            0
+          );
+
+
+    const finalResult =
+      baseResult + mod;
+
+
+    total.textContent =
+      finalResult;
+
+
+    /* -----------------------------
+       RESULT DETAILS
+    ------------------------------ */
+
+    if (
+      keptRoll !== null
+    ) {
+
+      detail.textContent =
+        `Rolled ${rolls.join(
+          " and "
+        )} • kept ${keptRoll}` +
+        (
+          mod !== 0
+
+            ? ` • ${
+                mod > 0
+                  ? "+"
+                  : ""
+              }${mod}`
+
+            : ""
+        );
+
+    } else {
+
+      detail.textContent =
+        `Rolled ${rolls.join(
+          ", "
+        )}` +
+        (
+          mod !== 0
+
+            ? ` • ${
+                mod > 0
+                  ? "+"
+                  : ""
+              }${mod}`
+
+            : ""
+        );
+
+    }
+
+
+    /* -----------------------------
+       D&D SPECIAL RESULTS
+    ------------------------------ */
+
+    special.textContent = "";
+
+
+    if (
+      type.value ===
+        "Attack Roll" &&
+      sides === 20 &&
+      diceCount === 1 &&
+      baseResult === 20
+    ) {
+
+      special.textContent =
+        "NATURAL 20 — CRITICAL HIT!";
+
+    } else if (
+      type.value ===
+        "Attack Roll" &&
+      sides === 20 &&
+      diceCount === 1 &&
+      baseResult === 1
+    ) {
+
+      special.textContent =
+        "NATURAL 1 — AUTOMATIC MISS";
+
+    } else if (
+      type.value ===
+      "Initiative"
+    ) {
+
+      special.textContent =
+        "INITIATIVE";
+
+    }
+
+
+    /* -----------------------------
+       HISTORY LABEL
+    ------------------------------ */
+
+    const historyParts = [
+
+      type.value,
+
+      `${diceCount}d${sides}`
+
+    ];
+
+
+    /*
+      Only show Advantage /
+      Disadvantage if it was
+      actually used.
+    */
+
+    if (
+      keptRoll !== null &&
+      mode === "advantage"
+    ) {
+
+      historyParts.push(
+        "Advantage"
+      );
+
+    }
+
+
+    if (
+      keptRoll !== null &&
+      mode ===
+        "disadvantage"
+    ) {
+
+      historyParts.push(
+        "Disadvantage"
+      );
+
+    }
+
+
+    /*
+      Don't display +0.
+    */
+
+    if (mod !== 0) {
+
+      historyParts.push(
+        `${
+          mod > 0
+            ? "+"
+            : ""
+        }${mod}`
+      );
+
+    }
+
+
+    addHistory(
+      historyParts.join(" • "),
+      finalResult
+    );
+
+
+    saveSettings();
+
+  }
+
+
+  /* =====================================
+     LOAD SAVED DATA
+  ===================================== */
+
+  function loadSavedData() {
+
+    /* -----------------------------
+       SETTINGS
+    ------------------------------ */
+
+    try {
+
+      const rawSettings =
+        storageGet(
+          SETTINGS_KEY
+        );
+
+
+      if (rawSettings) {
+
+        const saved =
+          JSON.parse(
+            rawSettings
+          );
+
+
+        const validDice = [
+          4,
+          6,
+          8,
+          10,
+          12,
+          20,
+          100
+        ];
+
+
+        if (
+          validDice.includes(
+            Number(
+              saved.sides
+            )
+          )
+        ) {
+
+          sides =
+            Number(
+              saved.sides
+            );
+
+        }
+
+
+        const validModes = [
+          "normal",
+          "advantage",
+          "disadvantage"
+        ];
+
+
+        if (
+          validModes.includes(
+            saved.mode
+          )
+        ) {
+
+          mode =
+            saved.mode;
+
+        }
+
+
+        if (
+          saved.count !==
+          undefined
+        ) {
+
+          count.value =
+            clamp(
+              saved.count,
+              1,
+              20,
+              1
+            );
+
+        }
+
+
+        if (
+          saved.modifier !==
+          undefined
+        ) {
+
+          modifier.value =
+            clamp(
+              saved.modifier,
+              -99,
+              99,
+              0
+            );
+
+        }
+
+
+        if (
+          saved.type &&
+          Array.from(
+            type.options
+          ).some(
+            option =>
+              option.value ===
+              saved.type
+          )
+        ) {
+
+          type.value =
+            saved.type;
+
+        }
+
+
+        if (
+          /^#[0-9a-f]{6}$/i.test(
+            saved.diceColor || ""
+          )
+        ) {
+
+          diceColor.value =
+            saved.diceColor;
+
+        }
+
+
+        if (
+          /^#[0-9a-f]{6}$/i.test(
+            saved.themeColor || ""
+          )
+        ) {
+
+          themeColor.value =
+            saved.themeColor;
+
+        }
+
+      }
+
+    } catch (error) {
+
+      console.warn(
+        "Could not load saved settings.",
+        error
+      );
+
+    }
+
+
+    /* -----------------------------
+       HISTORY
+    ------------------------------ */
+
+    try {
+
+      const rawHistory =
+        storageGet(
+          HISTORY_KEY
+        );
+
+
+      if (rawHistory) {
+
+        const savedHistory =
+          JSON.parse(
+            rawHistory
+          );
+
+
+        if (
+          Array.isArray(
+            savedHistory
+          )
+        ) {
+
+          hist =
+            savedHistory.slice(
+              0,
+              8
+            );
+
+        }
+
+      }
+
+    } catch (error) {
+
+      console.warn(
+        "Could not load roll history.",
+        error
+      );
+
+      hist = [];
+
+    }
+
+
+    /* Apply saved UI */
+
+    chooseDie(
+      sides,
+      false
+    );
+
+    setMode(
+      mode,
+      false
+    );
+
+    setDiceColor(
+      false
+    );
+
+    setThemeColor(
+      false
+    );
+
+    renderHistory();
+
+  }
+
+
+  /* =====================================
+     EVENTS
+  ===================================== */
+
+  document
+    .querySelectorAll(
+      ".die-pick"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          chooseDie(
+            Number(
+              button.dataset.sides
+            )
+          );
+
+        }
+      );
+
+    });
+
+
+  document
+    .querySelectorAll(
+      ".mode"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          setMode(
+            button.dataset.mode
+          );
+
+        }
+      );
+
+    });
+
+
+  /*
+    Quick buttons:
+    Attack -> Damage -> Save
+  */
+
+  document
+    .querySelectorAll(
+      ".quick[data-type]"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          type.value =
+            button.dataset.type;
+
+          saveSettings();
+
+          performRoll();
+
+        }
+      );
+
+    });
+
+
+  diceColor.addEventListener(
+    "input",
+    () => {
+
+      setDiceColor();
+
+    }
+  );
+
+
+  themeColor.addEventListener(
+    "input",
+    () => {
+
+      setThemeColor();
+
+    }
+  );
+
+
+  count.addEventListener(
+    "change",
+    saveSettings
+  );
+
+
+  modifier.addEventListener(
+    "change",
+    saveSettings
+  );
+
+
+  type.addEventListener(
+    "change",
+    saveSettings
+  );
+
+
+  rollButton.addEventListener(
+    "click",
+    performRoll
+  );
+
+
+  /* ---------------------------------
+     THEME POPOVER
+  ---------------------------------- */
+
+  themeToggle.addEventListener(
+    "click",
+    event => {
+
+      event.stopPropagation();
+
+      const opening =
+        themePopover.hidden;
+
+      themePopover.hidden =
+        !opening;
+
+      themeToggle.setAttribute(
+        "aria-expanded",
+        String(opening)
+      );
+
+    }
+  );
+
+
+  themePopover.addEventListener(
+    "click",
+    event => {
+
+      event.stopPropagation();
+
+    }
+  );
+
+
+  document.addEventListener(
+    "click",
+    () => {
+
+      themePopover.hidden =
+        true;
+
+      themeToggle.setAttribute(
+        "aria-expanded",
+        "false"
+      );
+
+    }
+  );
+
+
+  /* ---------------------------------
+     CLEAR HISTORY
+  ---------------------------------- */
+
+  clearButton.addEventListener(
+    "click",
+    () => {
+
+      hist = [];
+
+      /*
+        Only history is removed.
+
+        Dice/settings are retained.
+      */
+
+      storageRemove(
+        HISTORY_KEY
+      );
+
+      renderHistory();
+
+    }
+  );
+
+
+  /* =====================================
+     INITIALIZE
+  ===================================== */
+
+  loadSavedData();
+
+})();
+</script>
+
+</body>
+</html>
